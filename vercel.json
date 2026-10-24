@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run vercel-build",
+  "regions": ["bom1"],
+  "functions": {
+    "src/app/api/uploads/[kind]/route.ts": { "maxDuration": 300 },
+    "src/app/api/reports/[report]/route.ts": { "maxDuration": 120 }
+  }
+}

@@ -1,0 +1,432 @@
+[
+ {
+  "name": "Mavericks T-Shirt - XXXL - Blue - Finch",
+  "product": "Mavericks T-Shirt",
+  "size": "XXXL",
+  "color": "Blue",
+  "brand": "Finch",
+  "procured": 3,
+  "distributed": 0,
+  "available": 3
+ },
+ {
+  "name": "Mavericks T-Shirt - Female - M - Ash - Crocodile",
+  "product": "Mavericks T-Shirt - Female",
+  "size": "M",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Mavericks T-Shirt - Female - XXL - Ash - Crocodile",
+  "product": "Mavericks T-Shirt - Female",
+  "size": "XXL",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Mavericks T-Shirt - Female - XXXL - Ash - Crocodile",
+  "product": "Mavericks T-Shirt - Female",
+  "size": "XXXL",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Mavericks T-Shirt - L - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "L",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 124,
+  "distributed": 78,
+  "available": 46
+ },
+ {
+  "name": "Mavericks T-Shirt - M - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "M",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 165,
+  "distributed": 94,
+  "available": 71
+ },
+ {
+  "name": "Mavericks T-Shirt - S - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "S",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 85,
+  "distributed": 60,
+  "available": 25
+ },
+ {
+  "name": "Mavericks T-Shirt - XL - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "XL",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 66,
+  "distributed": 46,
+  "available": 20
+ },
+ {
+  "name": "Mavericks T-Shirt - XXL - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "XXL",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 23,
+  "distributed": 17,
+  "available": 6
+ },
+ {
+  "name": "Mavericks T-Shirt - XXXL - Ash - Crocodile",
+  "product": "Mavericks T-Shirt",
+  "size": "XXXL",
+  "color": "Ash",
+  "brand": "Crocodile",
+  "procured": 2,
+  "distributed": 0,
+  "available": 2
+ },
+ {
+  "name": "Design-a-thon T-Shirt - L - Blue - NA",
+  "product": "Design-a-thon T-Shirt",
+  "size": "L",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Design-a-thon T-Shirt - XXL - Blue - NA",
+  "product": "Design-a-thon T-Shirt",
+  "size": "XXL",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Design-a-thon T-Shirt - XXXL - Blue - NA",
+  "product": "Design-a-thon T-Shirt",
+  "size": "XXXL",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Bottle - 600 ml - Orange - NA",
+  "product": "Bottle",
+  "size": "600 ml",
+  "color": "Orange",
+  "brand": "NA",
+  "procured": 17,
+  "distributed": 5,
+  "available": 12
+ },
+ {
+  "name": "Bottle - 750 ml - Black - Hot & Cold",
+  "product": "Bottle",
+  "size": "750 ml",
+  "color": "Black",
+  "brand": "Hot & Cold",
+  "procured": 13,
+  "distributed": 4,
+  "available": 9
+ },
+ {
+  "name": "Bottle - 750 ml - Black - Behome",
+  "product": "Bottle",
+  "size": "750 ml",
+  "color": "Black",
+  "brand": "Behome",
+  "procured": 1,
+  "distributed": 0,
+  "available": 1
+ },
+ {
+  "name": "Bottle - 600 ml - Black - Behome",
+  "product": "Bottle",
+  "size": "600 ml",
+  "color": "Black",
+  "brand": "Behome",
+  "procured": 79,
+  "distributed": 40,
+  "available": 39
+ },
+ {
+  "name": "Bag - Travel - Red - NA",
+  "product": "Travel Bag",
+  "size": "Travel",
+  "color": "Red",
+  "brand": "NA",
+  "procured": 2,
+  "distributed": 0,
+  "available": 2
+ },
+ {
+  "name": "Bag - Jute - Brown - NA",
+  "product": "Jute Bag",
+  "size": "Jute",
+  "color": "Brown",
+  "brand": "NA",
+  "procured": 159,
+  "distributed": 103,
+  "available": 56
+ },
+ {
+  "name": "Bag - Back - Blue - NA",
+  "product": "Blue Back Bag",
+  "size": "Back",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 180,
+  "distributed": 10,
+  "available": 170
+ },
+ {
+  "name": "Bag - Back - Black - NA",
+  "product": "Black Back Bag",
+  "size": "Back",
+  "color": "Black",
+  "brand": "NA",
+  "procured": 30,
+  "distributed": 0,
+  "available": 30
+ },
+ {
+  "name": "Diary - NA - Brown - NA",
+  "product": "Diary",
+  "size": "NA",
+  "color": "Brown",
+  "brand": "NA",
+  "procured": 2,
+  "distributed": 0,
+  "available": 2
+ },
+ {
+  "name": "Pen - NA - Brown - NA",
+  "product": "Pen",
+  "size": "NA",
+  "color": "Brown",
+  "brand": "NA",
+  "procured": 5,
+  "distributed": 0,
+  "available": 5
+ },
+ {
+  "name": "Mug - NA - Black - NA",
+  "product": "Mug",
+  "size": "NA",
+  "color": "Black",
+  "brand": "NA",
+  "procured": 13,
+  "distributed": 0,
+  "available": 13
+ },
+ {
+  "name": "Flask - NA - Black - Vacuum",
+  "product": "Flask",
+  "size": "NA",
+  "color": "Black",
+  "brand": "Vacuum",
+  "procured": 93,
+  "distributed": 73,
+  "available": 20
+ },
+ {
+  "name": "Headphones - Large - Red - Boat",
+  "product": "Headphones",
+  "size": "Large",
+  "color": "Red",
+  "brand": "Boat",
+  "procured": 430,
+  "distributed": 315,
+  "available": 115
+ },
+ {
+  "name": "Smart Watch - NA - Black - Boat",
+  "product": "Smart Watch",
+  "size": "NA",
+  "color": "Black",
+  "brand": "Boat",
+  "procured": 650,
+  "distributed": 410,
+  "available": 240
+ },
+ {
+  "name": "Plastic Pin Badges",
+  "product": "Badge",
+  "size": null,
+  "color": null,
+  "brand": null,
+  "procured": 1000,
+  "distributed": 0,
+  "available": 0
+ },
+ {
+  "name": "Mavericks Welcome Kit - L - Blue - NA",
+  "product": "Welcome Kit",
+  "size": "L",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 72,
+  "distributed": 60,
+  "available": 12
+ },
+ {
+  "name": "Mavericks Welcome Kit - M - Blue - NA",
+  "product": "Welcome Kit",
+  "size": "M",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 110,
+  "distributed": 82,
+  "available": 28
+ },
+ {
+  "name": "Mavericks Welcome Kit - S - Blue - NA",
+  "product": "Welcome Kit",
+  "size": "S",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 100,
+  "distributed": 84,
+  "available": 16
+ },
+ {
+  "name": "Mavericks Welcome Kit - XL - Blue - NA",
+  "product": "Welcome Kit",
+  "size": "XL",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 84,
+  "distributed": 62,
+  "available": 22
+ },
+ {
+  "name": "Mavericks Welcome Kit - XXL - Blue - NA",
+  "product": "Welcome Kit",
+  "size": "XXL",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 50,
+  "distributed": 37,
+  "available": 13
+ },
+ {
+  "name": "Design-a-thon T-Shirt - L - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "L",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 150,
+  "distributed": 134,
+  "available": 16
+ },
+ {
+  "name": "Design-a-thon T-Shirt - M - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "M",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 200,
+  "distributed": 190,
+  "available": 10
+ },
+ {
+  "name": "Design-a-thon T-Shirt - S - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "S",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 180,
+  "distributed": 143,
+  "available": 37
+ },
+ {
+  "name": "Design-a-thon T-Shirt - XL - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "XL",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 115,
+  "distributed": 86,
+  "available": 29
+ },
+ {
+  "name": "Design-a-thon T-Shirt - XXL - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "XXL",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 35,
+  "distributed": 24,
+  "available": 11
+ },
+ {
+  "name": "Design-a-thon T-Shirt - XXXL - Maroon - Ossify",
+  "product": "Design-a-thon T-Shirt",
+  "size": "XXXL",
+  "color": "Maroon",
+  "brand": "Ossify",
+  "procured": 20,
+  "distributed": 8,
+  "available": 12
+ },
+ {
+  "name": "Bluetooth Speaker - NA - Black - Zebronics",
+  "product": "Bluetooth Speaker",
+  "size": "NA",
+  "color": "Black",
+  "brand": "Zebronics",
+  "procured": 300,
+  "distributed": 98,
+  "available": 202
+ },
+ {
+  "name": "Ball Pen - NA - Blue - NA",
+  "product": "Ball Pen",
+  "size": "NA",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 300,
+  "distributed": 10,
+  "available": 290
+ },
+ {
+  "name": "Diary - NA - Blue - NA",
+  "product": "Diary",
+  "size": "NA",
+  "color": "Blue",
+  "brand": "NA",
+  "procured": 300,
+  "distributed": 10,
+  "available": 290
+ },
+ {
+  "name": "Bot All Coffee Mug - NA - Blue - NA",
+  "product": "BOT ALL COFFEE MUG",
+  "size": "NA",
+  "color": "NA",
+  "brand": "NA",
+  "procured": 300,
+  "distributed": 86,
+  "available": 214
+ }
+]

@@ -1,0 +1,27 @@
+# Local production-like stack: `docker compose up --build`, then seed with
+#   docker compose exec app node node_modules/prisma/build/index.js db seed   (or run `npm run db:seed` from your machine)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mav
+      POSTGRES_PASSWORD: mav
+      POSTGRES_DB: mavericks
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mav"]
+      interval: 5s
+      retries: 10
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://mav:mav@db:5432/mavericks
+      DIRECT_URL: postgresql://mav:mav@db:5432/mavericks
+      AUTH_SECRET: change-me-to-a-long-random-string-of-48-chars-min
+      DEMO_MODE: "true"
+    ports: ["3000:3000"]
+volumes:
+  pgdata:
