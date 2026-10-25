@@ -9,7 +9,11 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 **Guides**
 
 - **[User guide](docs/USER-GUIDE.md):** every screen and button, with pictures, for people who'll use the app
-- **[Setup and deployment](docs/SETUP-AND-DEPLOYMENT.md):** database setup, Vercel, AWS, Azure or your own server, backups, troubleshooting
+- **[Setup and deployment](docs/SETUP-AND-DEPLOYMENT.md):** database setup, Vercel, AWS, Azure or your own server, company single sign-on, backups, troubleshooting
+
+**Put a demo online in about 10 minutes, without touching a database:** [Vercel + Neon steps](docs/SETUP-AND-DEPLOYMENT.md#6a-vercel--neon), or
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvenkynani1%2Fmavericks-inventory&project-name=mavericks-inventory&repository-name=mavericks-inventory&env=AUTH_SECRET,SEED_DEMO_DATA,DEMO_MODE&envDescription=AUTH_SECRET%3A%20any%20random%20text%20of%2032%2B%20characters.%20SEED_DEMO_DATA%20and%20DEMO_MODE%3A%20true%20for%20a%20demo%20with%20sample%20data%2C%20false%20for%20production.&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
 - **[BRD traceability](docs/BRD-TRACEABILITY.md):** where each requirement in the BRD is met
 
 ## What it does
@@ -19,6 +23,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 - **System Administrators** add users and set roles, choose one or two approval levels (optionally only above a unit threshold), and maintain the categories, purposes, locations and units.
 - **Overview:** stock on hand, handouts per week, where stock went by purpose, items to restock, and size runs for T-shirts and welcome kits.
 - **Reports:** current stock availability, distributed stock, pending approval, approval history and the stock movement ledger, each exportable to Excel and PDF.
+- **Company single sign-on** (Microsoft Entra ID or any OpenID Connect provider), built in and off until configured; roles come from Entra app roles.
 - Ctrl+K search, light and dark themes, phone layout.
 
 ## Rules the app enforces
@@ -35,6 +40,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 | Stock codes are unique; uploads reject duplicates within the file and against the database | Database unique key plus upload validation |
 | A one-time password must be replaced before anything else | Users with one are held on the profile page until they choose their own |
 | Sign-in is throttled | 5 wrong passwords lock that email for 5 minutes |
+| Company sign-in is verified end to end | Code flow with PKCE, state and nonce; ID-token signature, issuer and audience checked against the provider's keys; people without an app role are refused |
 | API errors have one shape | `{ "error": { "code": "NOT_FOUND", "message": "…" } }` |
 
 ## Try it: demo script
@@ -86,8 +92,9 @@ Or everything in containers: `docker compose up -d --build` (see the notes at th
 | `npm run build` | Production build |
 | `npm run e2e` | Every role and flow in a headless browser against a running app with demo data (`npx playwright install chromium` once) |
 | `npm run screenshots` | The same run, also refreshing `docs/screenshots` (use a freshly seeded database) |
+| `npm run mock-sso` / `npm run sso-check` | A test identity provider, and 15 checks of company sign-in against it ([setup guide §13.7](docs/SETUP-AND-DEPLOYMENT.md#137-try-it-without-azure-mock-provider)) |
 
-GitHub Actions (`.github/workflows/ci.yml`) runs all of them on every push against a real PostgreSQL. Run it manually with **screenshots** ticked to get fresh screenshots as a download.
+GitHub Actions (`.github/workflows/ci.yml`) runs all of them, including the SSO checks, on every push against a real PostgreSQL. Run it manually with **screenshots** ticked to get fresh screenshots as a download. To test a live deployment, run **Actions → Check a deployed site** with its address.
 
 ## Other commands
 
@@ -126,6 +133,5 @@ Built with Next.js 15, TypeScript, PostgreSQL with Prisma 6, shadcn/ui on Radix 
 
 ## Later
 
-- **Company single sign-on:** replace the password check in `src/app/actions/auth.ts` with a Microsoft Entra ID (OpenID Connect) callback that creates the same session, and map Entra groups to the four roles. Nothing else needs to change.
 - **Email notifications** to approvers when a request is submitted, and to the executive when it's returned.
 - **Stock adjustments** for damaged or lost items, using the existing `ADJUSTMENT` ledger type.

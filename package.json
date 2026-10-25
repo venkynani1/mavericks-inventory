@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -17,7 +17,9 @@
     "db:studio": "prisma studio",
     "db:setup": "tsx prisma/setup.ts",
     "e2e": "node scripts/e2e.mjs",
-    "screenshots": "SCREENSHOTS=1 node scripts/e2e.mjs"
+    "screenshots": "SCREENSHOTS=1 node scripts/e2e.mjs",
+    "mock-sso": "node scripts/mock-oidc.mjs",
+    "sso-check": "node scripts/sso-check.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

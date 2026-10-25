@@ -16,7 +16,8 @@ const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, ""
 const PASSWORD = process.env.SEED_PASSWORD || "Mavericks@2026"
 const SHOTS = process.env.SCREENSHOTS === "1" ? "docs/screenshots" : null
 // Test runs add a short suffix so names stay unique across repeated runs; screenshot runs (on a fresh seed) use clean names.
-const RUN = SHOTS ? "" : Date.now().toString(36).slice(-5)
+// E2E_KEEP_NAMES_UNIQUE=1 keeps suffixes even with screenshots (used when checking a live site that already has data).
+const RUN = SHOTS && process.env.E2E_KEEP_NAMES_UNIQUE !== "1" ? "" : Date.now().toString(36).slice(-5)
 const tag = (s) => (RUN ? `${s} ${RUN}` : s)
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 

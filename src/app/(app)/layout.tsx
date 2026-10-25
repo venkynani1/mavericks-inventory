@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getUser()
   if (!user) redirect("/login")
   // One-time passwords must be replaced before anything else.
-  if (user.mustChangePw && (await headers()).get("x-pathname") !== "/profile") redirect("/profile?first=1")
+  if (user.mustChangePw && user.via !== "sso" && (await headers()).get("x-pathname") !== "/profile") redirect("/profile?first=1")
   const [approvals, mine] = await Promise.all([
     can(user.role, "request:approve") ? prisma.request.count({ where: { status: "SUBMITTED", createdById: { not: user.id } } }) : 0,
     prisma.request.count({ where: { createdById: user.id, status: { in: ["DRAFT", "REJECTED"] } } }),

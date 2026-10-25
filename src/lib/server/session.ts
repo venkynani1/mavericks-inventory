@@ -15,8 +15,9 @@ function secret() {
   return new TextEncoder().encode(s)
 }
 
-export async function createSession(user: { id: string; role: Role }) {
-  const token = await new SignJWT({ role: user.role })
+/** `via` records how the person signed in: their password, or company single sign-on. */
+export async function createSession(user: { id: string; role: Role }, via: "password" | "sso" = "password") {
+  const token = await new SignJWT({ role: user.role, via })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
     .setIssuedAt()
@@ -44,6 +45,7 @@ export type SessionUser = {
   empId: string
   role: Role
   mustChangePw: boolean
+  via: "password" | "sso"
 }
 
 /** Current user, re-checked against the database so deactivated users lose access immediately. */
@@ -59,7 +61,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
       select: { id: true, name: true, email: true, empId: true, role: true, active: true, mustChangePw: true },
     })
     if (!u || !u.active) return null
-    return { id: u.id, name: u.name, email: u.email, empId: u.empId, role: u.role, mustChangePw: u.mustChangePw }
+    return { id: u.id, name: u.name, email: u.email, empId: u.empId, role: u.role, mustChangePw: u.mustChangePw, via: payload.via === "sso" ? "sso" : "password" }
   } catch {
     return null
   }

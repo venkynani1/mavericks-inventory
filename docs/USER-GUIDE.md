@@ -67,6 +67,8 @@ Two safety rules apply to everyone:
 1. Open the address your administrator gave you.
 2. Enter your **work email** and **password**, then select **Sign in**.
 
+If your company has switched on single sign-on, the page shows **Sign in with Microsoft**. Select it and sign in with your normal Hexaware account; you don't need a separate password. If it says you don't have access yet, ask the administrator to give you a role.
+
 - New users get a **one-time password** from the administrator. The first time you sign in you'll be asked to choose your own (see [Your profile and password](#your-profile-and-password)).
 - After 5 wrong passwords the account waits 5 minutes before you can try again.
 - Forgot your password? Ask a System Administrator to reset it; you'll get a new one-time password.

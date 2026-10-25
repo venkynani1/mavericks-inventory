@@ -80,6 +80,19 @@ jobs:
           BASE_URL: http://localhost:3000
           SCREENSHOTS: ${{ inputs.screenshots && '1' || '0' }}
 
+      - name: Company sign-in (SSO) against a mock identity provider
+        run: |
+          pkill -f "next start" || true
+          node scripts/mock-oidc.mjs > mock-oidc.log 2>&1 &
+          export SSO_ISSUER=http://localhost:4400 SSO_CLIENT_ID=mavericks-inventory SSO_CLIENT_SECRET=mock-secret
+          export SSO_PROVIDER_NAME="Mock company login" SSO_ALLOWED_EMAIL_DOMAINS=hexaware.example,mavericks.demo
+          wait_up() { for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health > /dev/null && return 0; sleep 1; done; cat server.log; return 1; }
+          npm run start > server.log 2>&1 & wait_up
+          BASE_URL=http://localhost:3000 node scripts/sso-check.mjs
+          pkill -f "next start"; sleep 2
+          SSO_ONLY=true npm run start > server.log 2>&1 & wait_up
+          BASE_URL=http://localhost:3000 node scripts/sso-check.mjs --sso-only
+
       - name: Attach screenshots
         if: inputs.screenshots
         uses: actions/upload-artifact@v4

@@ -66,6 +66,8 @@ model User {
   active       Boolean  @default(true)
   mustChangePw Boolean  @default(false)
   lastLoginAt  DateTime?
+  /// Set when the person signs in with company SSO: "<issuer>|<subject>" from the identity provider.
+  ssoSubject   String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

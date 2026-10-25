@@ -9,6 +9,7 @@ import { createSession, destroySession, getUser } from "@/lib/server/session"
 import { run } from "@/lib/server/action"
 import { AppError } from "@/lib/server/session"
 import { ensureBaseData } from "../../../prisma/base-data"
+import { endSessionUrl, ssoConfig } from "@/lib/server/sso"
 
 /**
  * First-run sign-in. While the database has no user accounts, signing in with
@@ -51,6 +52,9 @@ export async function login(_: LoginState, form: FormData): Promise<LoginState> 
     return { error: user && !user.active ? "This account is deactivated. Contact the administrator." : "That email and password don't match.", email }
   }
   attempts.delete(email)
+  // In SSO-only mode, passwords are kept only as an administrator fallback.
+  const sso = ssoConfig()
+  if (sso?.ssoOnly && user.role !== "ADMIN") return { error: `Use "Sign in with ${sso.providerName}" with your work account.`, email }
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
   await audit(prisma, { actorId: user.id, action: "USER.LOGIN", entity: "User", entityId: user.id, summary: `${user.name} signed in` })
   await createSession({ id: user.id, role: user.role })
@@ -58,7 +62,15 @@ export async function login(_: LoginState, form: FormData): Promise<LoginState> 
 }
 
 export async function logout() {
+  const me = await getUser()
   await destroySession()
+  // Optionally end the company sign-in session too (SSO_SIGN_OUT_EVERYWHERE=true).
+  const sso = ssoConfig()
+  if (sso && me?.via === "sso") {
+    const base = sso.appUrl ?? ""
+    const url = base ? await endSessionUrl(sso, `${base}/login`) : null
+    if (url) redirect(url)
+  }
   redirect("/login")
 }
 

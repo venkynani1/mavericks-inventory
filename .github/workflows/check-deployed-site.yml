@@ -1,0 +1,63 @@
+name: Check a deployed site
+
+# Runs the full end-to-end test (every role and flow) against a live deployment,
+# for example your Vercel address. Start it from GitHub → Actions → "Check a deployed site" → Run workflow.
+# The site must have the demo data loaded (SEED_DEMO_DATA=true) and the test creates sample
+# records on it, so use it on a demo/UAT deployment, not on production.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Site address, e.g. https://mavericks-inventory.vercel.app"
+        required: true
+      screenshots:
+        description: "Also take screenshots of every page (attached to the run)"
+        type: boolean
+        default: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install test tools
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+
+      - name: Site is up and its database is reachable
+        run: |
+          URL="${{ inputs.url }}"; URL="${URL%/}"
+          echo "Checking $URL/api/health"
+          curl -sS --fail-with-body "$URL/api/health" | tee health.json
+          grep -q '"status":"ok"' health.json
+
+      - name: End-to-end test
+        run: npm run e2e 2>&1 | tee e2e.log; exit ${PIPESTATUS[0]}
+        env:
+          BASE_URL: ${{ inputs.url }}
+          SCREENSHOTS: ${{ inputs.screenshots && '1' || '0' }}
+          E2E_KEEP_NAMES_UNIQUE: "1"
+
+      - name: Attach screenshots
+        if: always() && inputs.screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-site-screenshots
+          path: docs/screenshots
+          if-no-files-found: ignore
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Check of ${{ inputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat e2e.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No test output" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

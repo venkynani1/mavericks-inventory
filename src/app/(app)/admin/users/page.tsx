@@ -48,7 +48,8 @@ export default async function Users() {
                 <TableCell>
                   {ROLE_LABEL[u.role]}
                   {!u.active && <span className="block text-xs text-rejected">Deactivated</span>}
-                  {u.mustChangePw && u.active && <span className="block text-xs text-pending">Must change password</span>}
+                  {u.ssoSubject && <span className="block text-xs text-muted-foreground">Signs in with company SSO</span>}
+                  {u.mustChangePw && u.active && !u.ssoSubject && <span className="block text-xs text-pending">Must change password</span>}
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">{u.department ?? "—"}</TableCell>
                 <TableCell className="hidden text-muted-foreground lg:table-cell">{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : "Never"}</TableCell>

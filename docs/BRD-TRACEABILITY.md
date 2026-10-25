@@ -40,3 +40,5 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 - Production start without demo accounts: the first administrator is created from a one-time bootstrap sign-in, and one-time passwords must be replaced before anything else.
 - Automated end-to-end test of every role and flow (41 checks in a real browser), run by GitHub Actions on every push.
 - Illustrated user guide and a step-by-step setup and deployment guide for Vercel, AWS, Azure and self-hosting.
+- Company single sign-on (Microsoft Entra ID / any OpenID Connect provider) with role mapping from app roles, SSO-only mode and an administrator fallback; tested against a bundled mock provider.
+- Vercel deployment that creates the database tables and optional demo data during the build, plus a GitHub workflow that runs the full test against a live site.
