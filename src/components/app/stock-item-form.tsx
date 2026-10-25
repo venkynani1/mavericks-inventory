@@ -77,7 +77,7 @@ export function StockItemForm({
         <FieldGroup className="grid gap-5 md:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="product">Product</FieldLabel>
-            <Input id="product" required value={v.product} onChange={(e) => set("product", e.target.value)} placeholder="Mavericks T-Shirt" />
+            <Input id="product" required value={v.product} onChange={(e) => set("product", e.target.value)} placeholder="Mavericks T-Shirt…" />
           </Field>
           <Field>
             <FieldLabel htmlFor="category">Category</FieldLabel>
@@ -103,11 +103,11 @@ export function StockItemForm({
             </Field>
             <Field>
               <FieldLabel htmlFor="color">Colour</FieldLabel>
-              <Input id="color" value={v.color ?? ""} onChange={(e) => set("color", e.target.value)} placeholder="Ash" />
+              <Input id="color" value={v.color ?? ""} onChange={(e) => set("color", e.target.value)} placeholder="Ash…" />
             </Field>
             <Field>
               <FieldLabel htmlFor="brand">Brand</FieldLabel>
-              <Input id="brand" value={v.brand ?? ""} onChange={(e) => set("brand", e.target.value)} placeholder="Crocodile" />
+              <Input id="brand" value={v.brand ?? ""} onChange={(e) => set("brand", e.target.value)} placeholder="Crocodile…" />
             </Field>
           </div>
           <Field className="md:col-span-2">
@@ -125,7 +125,7 @@ export function StockItemForm({
           </Field>
           <Field>
             <FieldLabel htmlFor="code">Stock code</FieldLabel>
-            <Input id="code" value={v.code ?? ""} onChange={(e) => set("code", e.target.value)} placeholder="Leave blank to generate" />
+            <Input id="code" spellCheck={false} autoComplete="off" value={v.code ?? ""} onChange={(e) => set("code", e.target.value)} placeholder="Leave blank to generate…" />
           </Field>
           <Field>
             <FieldLabel htmlFor="unit">Unit of measure</FieldLabel>

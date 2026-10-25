@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { SearchIcon, XIcon } from "lucide-react"
@@ -38,7 +39,7 @@ export function SearchFilter({ param = "q", placeholder, className }: { param?: 
   return (
     <InputGroup className={cn("h-9 w-full sm:w-72 bg-card", className)}>
       <InputGroupAddon>{pending ? <Spinner /> : <SearchIcon />}</InputGroupAddon>
-      <InputGroupInput value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      <InputGroupInput value={v} onChange={(e) => setV(e.target.value)} placeholder={placeholder} aria-label={placeholder.replace(/…$/, "")} />
       {v && (
         <InputGroupAddon align="inline-end">
           <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => setV("")}>
@@ -82,26 +83,39 @@ export function DateFilter({ param, label }: { param: string; label: string }) {
   )
 }
 
+/**
+ * Tab-style filter. Each option is a real link, so it works before scripts load
+ * and supports Ctrl+click / open in new tab.
+ */
 export function Segmented({ param, options }: { param: string; options: { value: string; label: string; count?: number }[] }) {
-  const { set, params } = useParamSetter()
+  const pathname = usePathname()
+  const params = useSearchParams()
   const current = params.get(param) ?? options[0].value
+  const hrefFor = (value: string) => {
+    const sp = new URLSearchParams(params.toString())
+    if (value === options[0].value) sp.delete(param)
+    else sp.set(param, value)
+    sp.delete("page")
+    return `${pathname}${sp.size ? `?${sp}` : ""}`
+  }
   return (
-    <div role="tablist" className="inline-flex h-9 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-muted p-0.5">
+    <nav aria-label="Filter" className="inline-flex h-9 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-muted p-0.5">
       {options.map((o) => (
-        <button
+        <Link
           key={o.value}
-          role="tab"
-          aria-selected={current === o.value}
-          onClick={() => set(param, o.value === options[0].value ? null : o.value)}
+          href={hrefFor(o.value)}
+          replace
+          scroll={false}
+          aria-current={current === o.value ? "page" : undefined}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
             current === o.value && "bg-card font-medium text-foreground shadow-xs",
           )}
         >
           {o.label}
           {o.count !== undefined && <span className="num text-xs text-muted-foreground">{o.count}</span>}
-        </button>
+        </Link>
       ))}
-    </div>
+    </nav>
   )
 }

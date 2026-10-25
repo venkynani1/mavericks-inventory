@@ -21,7 +21,7 @@ export default async function EditStockItem({ params }: { params: Promise<{ id: 
   if (!l.categories.some((c) => c.value === item.categoryId)) l.categories.push({ value: item.categoryId, label: "Current category (disabled)" })
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Edit stock item" description={`${item.code} · ${item.name}`} />
+      <PageHeader title="Edit stock item" description={`${item.name} (${item.code})`} />
       {item.status === "ACTIVE" && (
         <Alert className="mb-6">
           <AlertTitle>Administrator override</AlertTitle>

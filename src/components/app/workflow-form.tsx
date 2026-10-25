@@ -50,7 +50,7 @@ export function WorkflowForm({ initial }: { initial: S }) {
         <Field orientation="horizontal">
           <FieldContent>
             <FieldLabel htmlFor="neg">Block distributions that exceed available stock</FieldLabel>
-            <FieldDescription>Checked on submit and again at final approval. Turning this off lets stock go negative — keep it on unless you&apos;re back-filling history.</FieldDescription>
+            <FieldDescription>Checked on submit and again at final approval. Turning it off lets stock go below zero, so keep it on unless you&apos;re entering old records.</FieldDescription>
           </FieldContent>
           <Switch id="neg" checked={v.preventNegativeStock} onCheckedChange={(c) => setV({ ...v, preventNegativeStock: c })} />
         </Field>

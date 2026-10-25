@@ -68,7 +68,7 @@ export function UserDialog({ user }: { user?: U }) {
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="u-emp">Employee ID</FieldLabel>
-                <Input id="u-emp" value={v.empId} onChange={(e) => setV({ ...v, empId: e.target.value })} />
+                <Input id="u-emp" spellCheck={false} autoComplete="off" value={v.empId} onChange={(e) => setV({ ...v, empId: e.target.value })} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="u-name">Full name</FieldLabel>
@@ -76,7 +76,7 @@ export function UserDialog({ user }: { user?: U }) {
               </Field>
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="u-email">Work email</FieldLabel>
-                <Input id="u-email" type="email" value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} />
+                <Input id="u-email" type="email" spellCheck={false} autoComplete="off" value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} />
               </Field>
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="u-role">Role</FieldLabel>

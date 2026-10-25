@@ -8,6 +8,25 @@ import { audit } from "@/lib/server/audit"
 import { createSession, destroySession, getUser } from "@/lib/server/session"
 import { run } from "@/lib/server/action"
 import { AppError } from "@/lib/server/session"
+import { ensureBaseData } from "../../../prisma/base-data"
+
+/**
+ * First-run sign-in. While the database has no user accounts, signing in with
+ * BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD creates the first System Administrator
+ * (who must then choose a new password). Once any account exists this does nothing.
+ */
+async function bootstrapFirstAdmin(email: string, password: string) {
+  const bEmail = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase()
+  const bPass = process.env.BOOTSTRAP_ADMIN_PASSWORD
+  if (!bEmail || !bPass || bPass.length < 10 || email !== bEmail || password !== bPass) return null
+  if ((await prisma.user.count()) > 0) return null
+  await ensureBaseData(prisma)
+  const user = await prisma.user.create({
+    data: { empId: "ADMIN", name: "System Administrator", email, role: "ADMIN", passwordHash: await bcrypt.hash(password, 10), mustChangePw: true },
+  })
+  await audit(prisma, { actorId: user.id, action: "SYSTEM.BOOTSTRAP", entity: "User", entityId: user.id, summary: "First administrator created from the bootstrap sign-in" })
+  return user
+}
 
 export type LoginState = { error?: string; email?: string }
 
@@ -23,9 +42,10 @@ export async function login(_: LoginState, form: FormData): Promise<LoginState> 
   const a = attempts.get(email)
   if (a && a.until > Date.now()) return { error: "Too many attempts. Wait a few minutes, then try again.", email }
 
-  const user = await prisma.user.findUnique({ where: { email } })
+  let user = await prisma.user.findUnique({ where: { email } })
+  if (!user) user = await bootstrapFirstAdmin(email, password)
   const ok = user && user.active && (await bcrypt.compare(password, user.passwordHash))
-  if (!ok) {
+  if (!ok || !user) {
     const n = (a?.n ?? 0) + 1
     attempts.set(email, { n, until: n >= 5 ? Date.now() + 5 * 60_000 : 0 })
     return { error: user && !user.active ? "This account is deactivated. Contact the administrator." : "That email and password don't match.", email }

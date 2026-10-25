@@ -12,7 +12,7 @@ const MAP: Record<ReqStatus, { label: string; cls: string }> = {
 
 export function StatusBadge({ status, level, required, className }: { status: ReqStatus; level?: number; required?: number; className?: string }) {
   const m = MAP[status]
-  const label = status === "SUBMITTED" && required && required > 1 ? `In review · L${(level ?? 0) + 1} of ${required}` : m.label
+  const label = status === "SUBMITTED" && required && required > 1 ? `In review, level ${(level ?? 0) + 1} of ${required}` : m.label
   return (
     <span className={cn("inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap", m.cls, className)}>
       <span className="size-1.5 rounded-full bg-current" aria-hidden />

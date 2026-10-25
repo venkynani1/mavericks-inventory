@@ -22,7 +22,7 @@ export function ItemPicker({ items, value, onChange, invalid, id }: { items: Pic
       </PopoverTrigger>
       <PopoverContent className="w-[min(32rem,90vw)] p-0" align="start">
         <Command filter={(v, s) => (v.toLowerCase().includes(s.toLowerCase()) ? 1 : 0)}>
-          <CommandInput placeholder="Search by name or code" />
+          <CommandInput placeholder="Search by name or code…" />
           <CommandList>
             <CommandEmpty>No active item matches.</CommandEmpty>
             <CommandGroup>
@@ -39,7 +39,7 @@ export function ItemPicker({ items, value, onChange, invalid, id }: { items: Pic
                   <CheckIcon className={cn(i.id === value ? "opacity-100" : "opacity-0")} />
                   <span className="truncate">{i.name}</span>
                   <span className={cn("num ml-auto shrink-0 text-xs", i.available <= 0 ? "text-rejected" : "text-muted-foreground")}>
-                    {i.code} · {i.available} left
+                    {i.code}, {i.available} left
                   </span>
                 </CommandItem>
               ))}

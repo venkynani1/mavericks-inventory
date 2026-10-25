@@ -182,7 +182,7 @@ export async function importStockMaster(buf: ArrayBuffer, fileName: string, user
       reorderLevel: (reorder as number) ?? 0,
     })
   }
-  if (guessed) warnings.push(`${guessed} rows had no category; one was assigned from the product name. Review them before submitting.`)
+  if (guessed) warnings.push(guessed === 1 ? "1 row had no category, so one was chosen from the product name. Check it before submitting." : `${guessed} rows had no category, so one was chosen from each product name. Check them before submitting.`)
 
   let requestId: string | null = null
   let requestNumber: string | null = null
@@ -290,7 +290,7 @@ export async function importLines(kind: "distribution" | "receipt", buf: ArrayBu
     const all = [...byCode.values()]
     const short = all.filter((i) => (need.get(i.id) ?? 0) > i.availableQty)
     if (short.length)
-      warnings.push(`${short.length} item${short.length > 1 ? "s" : ""} would go below zero (e.g. ${short[0].code}: needs ${need.get(short[0].id)}, ${short[0].availableQty} available). Fix the quantities before submitting.`)
+      warnings.push(`${short.length} item${short.length > 1 ? "s" : ""} would go below zero (for example ${short[0].code} needs ${need.get(short[0].id)}, ${short[0].availableQty} available). Fix the quantities before submitting.`)
   }
 
   let requestId: string | null = null

@@ -40,7 +40,7 @@ export default async function Users() {
                         {u.name} {u.id === me.id && <span className="text-xs font-normal text-muted-foreground">(you)</span>}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {u.email} · {u.empId}
+                        {u.email} ({u.empId})
                       </span>
                     </div>
                   </div>

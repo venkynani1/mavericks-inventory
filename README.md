@@ -1,105 +1,131 @@
 # Mavericks Inventory
 
-Approval-driven stock management for Hexaware Mavericks goodies — T-shirts, welcome kits, smart watches, bottles and event merchandise. It replaces the "Stock count / Recipient / Procurement" Excel trackers with one system where nothing leaves the shelf until a manager approves it, and every movement is on an immutable ledger.
+Stock management for the Mavericks team's goodies, welcome kits, T-shirts and event merchandise. Executives record what came in and who received what, a manager approves it, and only then does the stock count change. Every movement is on a ledger, and every change is in the audit log.
 
-Built from the *Mavericks Inventory BRD* and the two reference trackers (`Updated stock details - Sep 25.xlsx`, `Mavericks inventory application - Tracker reference - Apr 26.xlsx`).
+It replaces the Stock count / Recipient / Procurement Excel trackers, and those sheets upload into it without reformatting.
+
+![Overview](docs/screenshots/02-overview.png)
+
+**Guides**
+
+- **[User guide](docs/USER-GUIDE.md):** every screen and button, with pictures, for people who'll use the app
+- **[Setup and deployment](docs/SETUP-AND-DEPLOYMENT.md):** database setup, Vercel, AWS, Azure or your own server, backups, troubleshooting
+- **[BRD traceability](docs/BRD-TRACEABILITY.md):** where each requirement in the BRD is met
 
 ## What it does
 
-| Area | Highlights |
+- **Executives** add stock items, record distributions and stock inward one at a time or by uploading Excel (up to 50,000 rows), and submit them for approval. Valid rows become a draft; problem rows come back in a downloadable error report.
+- **Managers** approve or return requests at level 1. **The Management Authority** approves at level 1 or gives the final level-2 approval when two levels are switched on.
+- **System Administrators** add users and set roles, choose one or two approval levels (optionally only above a unit threshold), and maintain the categories, purposes, locations and units.
+- **Overview:** stock on hand, handouts per week, where stock went by purpose, items to restock, and size runs for T-shirts and welcome kits.
+- **Reports:** current stock availability, distributed stock, pending approval, approval history and the stock movement ledger, each exportable to Excel and PDF.
+- Ctrl+K search, light and dark themes, phone layout.
+
+## Rules the app enforces
+
+| Rule | How |
 | --- | --- |
-| **Stock master** | Add items one at a time or upload Excel (up to 50,000 rows). Mandatory-column, data-type and duplicate-code checks; valid rows become a **Draft** request, invalid rows come back as a downloadable error report. Legacy "Stock count" sheets are recognised as-is. |
-| **Distributions** | Single entry form with live availability, or bulk upload of the legacy "Recipient" sheet (Date of Delivery, Emp ID, Name, Base Location, Category, POC, Product Details). |
-| **Stock inward** | Replenish existing items (PO / invoice reference), also approval-gated. |
-| **Maker–checker** | Draft → Submitted → Approved / Rejected. Level 1 (Manager or Management Authority) is mandatory; level 2 (Management Authority) is configurable, optionally only above a unit threshold. Creators can't approve their own requests, and one person can't approve both levels. Rejections need remarks and return the request to the executive for correction. |
-| **Stock adjustment** | Quantities change **only at final approval**, inside one database transaction with a row lock and a conditional decrement, so two approvals can't oversell. Negative stock is blocked (configurable). |
-| **Audit** | Immutable approval history per request, a stock movement ledger per item, and a data-change log with before/after values for every write, sign-in and export. No hard deletes of transactional data. |
-| **Reports** | Current Stock Availability, Distributed Stock, Pending Approval (with overdue flag), Approval History, Stock Movement Ledger — each filterable and exportable to **Excel** and **PDF**. |
-| **Dashboard** | On-hand stock, 30-day handouts, approvals waiting, low stock, weekly trend, where stock went by purpose, and **size runs** for apparel and kits so you can plan the next onboarding batch. |
-| **Admin** | Users and roles (one-time passwords, forced change on first sign-in), approval rules, master data (categories, purposes, locations, units). |
+| Stock changes only at final approval; drafts, requests in review and returned requests never touch it | Quantities are posted in the same database transaction as the final approval, together with the ledger entries |
+| A distribution can't exceed what's on the shelf (switchable by an admin) | Checked on submit, then again at approval with a conditional update under a row lock, so two approvals at the same moment can't hand out the same units |
+| Nobody approves their own request; the two levels are signed by different people | Checked on the server for every approval, single or bulk |
+| Level 1 is a Manager or the Management Authority; level 2 is the Management Authority only | Role check per level; the number of levels is fixed when the request is submitted |
+| Returning a request needs a reason | Remarks are required; the executive sees them and can fix and resubmit |
+| Only drafts and returned requests can be edited, and only by their creator | Checked on every edit; quantities on approved items change only through new requests |
+| Submitted and approved records are never deleted | Drafts are marked deleted and items deactivated; approval history and the ledger are insert-only; lines removed from a draft and every edit are kept in the audit log with before/after values |
+| Stock codes are unique; uploads reject duplicates within the file and against the database | Database unique key plus upload validation |
+| A one-time password must be replaced before anything else | Users with one are held on the profile page until they choose their own |
+| Sign-in is throttled | 5 wrong passwords lock that email for 5 minutes |
+| API errors have one shape | `{ "error": { "code": "NOT_FOUND", "message": "…" } }` |
 
-### Roles
+## Try it: demo script
 
-| Role | Can |
-| --- | --- |
-| Executive | Upload/add stock items, record distributions and stock inward, submit, edit drafts and returned requests |
-| Manager | Approve or reject at level 1, view reports and audit trail |
-| Management Authority | Approve or reject at level 1 or 2 (final authority) |
-| System Administrator | Users, roles, approval rules, master data, audit logs, override details of approved items |
+With the demo data loaded (`npm run db:seed`) and `DEMO_MODE=true`, the sign-in page lists the demo accounts (password `Mavericks@2026`).
 
-## Tech stack
+1. Sign in as the **Executive**. **Distributions → Record a distribution**: pick *Bluetooth Speaker*, quantity 2, a recipient, **Submit for approval**. Open **Stock → Bluetooth Speaker**: the available number hasn't changed yet.
+2. Try a quantity of 100000: the item turns red and **Submit** is disabled.
+3. Sign in as the **Manager** (another browser or a private window). **Approvals** → open the request → **Approve and update stock**. The speaker's available count drops by 2 and the ledger shows the movement.
+4. As the Executive, record another distribution. As the Manager, **Reject** it with a remark. As the Executive, open it, fix a line, **Resubmit**. The approval history shows every step.
+5. As the Executive, **Stock → Add item** with an opening quantity of 150 and submit. Because it's over 100 units, the demo rules need two levels: the Manager approves level 1, then the **Management Authority** approves level 2 and the item appears in stock.
+6. **Distributions → Upload Excel** with an old Recipient sheet. Good rows become a draft; download the error report for the rest.
+7. **Reports**: download any report as Excel or PDF.
+8. Sign in as the **Admin**: add a user, sign in as them with the one-time password, and choose a new password.
 
-- **Next.js 15** (App Router, Server Components, Server Actions) + **TypeScript**
-- **PostgreSQL** via **Prisma 6** — portable across Neon/Vercel Postgres, AWS RDS/Aurora and Azure Database for PostgreSQL
-- **shadcn/ui** (Radix) + **Tailwind CSS v4**, Recharts, lucide icons, light and dark themes
-- **ExcelJS** for templates, uploads and exports; **jsPDF** for PDF reports
-- Auth: bcrypt password hashes + signed, httpOnly JWT session cookie (`jose`), role checks on every page, action and API route
+The same script runs automatically as an end-to-end test (`npm run e2e`, 41 checks in a real browser) on every push.
 
-## Run locally
+## Run it on your computer
 
-Requirements: Node 20+, PostgreSQL 14+ (or Docker).
+Requirements: Node.js 20+ and PostgreSQL 14+ (or Docker).
 
 ```bash
-cp .env.example .env            # set DATABASE_URL, DIRECT_URL and AUTH_SECRET
+git clone https://github.com/venkynani1/mavericks-inventory.git
+cd mavericks-inventory
 npm install
-npx prisma migrate deploy       # create tables
-npm run db:seed                 # load the Sep 25 stock list + demo data
-npm run dev                     # http://localhost:3000
+cp .env.example .env          # set DATABASE_URL, DIRECT_URL and AUTH_SECRET; DEMO_MODE="true" to list demo accounts
+npx prisma migrate deploy     # create the tables
+npm run db:seed               # demo data; or `npm run db:setup` for an empty production-style start
+npm run dev                   # http://localhost:3000
 ```
 
-Or the whole stack in containers: `docker compose up --build`.
+Or everything in containers: `docker compose up -d --build` (see the notes at the top of `docker-compose.yml`).
 
-### Demo accounts
+**Production start without demo data:** set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`. While there are no users, signing in with those creates the first System Administrator, who must then choose a new password. Full steps are in the [setup guide](docs/SETUP-AND-DEPLOYMENT.md#5-load-data-production-or-demo).
 
-All use the password in `SEED_PASSWORD` (default `Mavericks@2026`). Set `DEMO_MODE="true"` to show them on the sign-in page.
+### About the demo data
 
-| Email | Role |
-| --- | --- |
-| executive@mavericks.demo, executive2@mavericks.demo | Executive |
-| manager@mavericks.demo | Manager |
-| authority@mavericks.demo | Management Authority |
-| admin@mavericks.demo | System Administrator |
+- The 43 items and their procured, distributed and available quantities come from *Updated stock details – Sep 25*, and the stock balances reconcile exactly with the ledger.
+- Past handovers are regenerated to match each item's distributed quantity using **made-up names and IDs**; no real employee data is in this repository.
+- The Sep 25 sheet shows *Plastic Pin Badges* as 1,000 procured, 0 available and none distributed. The demo loads the 1,000; that gap needs checking against the physical stock.
+- The new items from the *Apr 26* tracker (RGB headphones, wireless mouse, laptop stickers, black coffee mug) are a request waiting for approval.
 
-**Change or deactivate these accounts before going live.**
-
-### About the seed data
-
-- The 43 items and their procured / distributed / available quantities come from *Updated stock details – Sep 25*. Stock balances reconcile exactly with the ledger.
-- Distribution history is regenerated to match each item's distributed quantity, with **generated recipient names and IDs** — no real employee data is stored in this repository. To bring in real history, upload the original Recipient sheet on **Distributions → Upload Excel**.
-- The Sep 25 sheet shows *Plastic Pin Badges* as 1,000 procured, 0 available and none distributed. That gap can't be explained from the file, so the seed loads the 1,000 procured; reconcile it in the app.
-- New items from the *Apr 26* tracker (RGB headphones, wireless mouse, laptop stickers, black coffee mug) are seeded as a stock-master request waiting for approval.
-
-## Deploy
-
-See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for step-by-step guides:
-
-- **Vercel + Neon** (fastest)
-- **AWS** — App Runner or ECS Fargate + RDS PostgreSQL
-- **Azure** — App Service for Containers or Container Apps + Azure Database for PostgreSQL
-
-BRD-to-implementation traceability is in **[docs/BRD-TRACEABILITY.md](docs/BRD-TRACEABILITY.md)**.
-
-## Scripts
+## Checks
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` / `npm start` | Production build and server |
-| `npm run vercel-build` | Generate client, apply migrations, build (used by Vercel) |
-| `npm run db:migrate` | Create a new migration after editing `prisma/schema.prisma` |
-| `npm run db:deploy` | Apply migrations (production) |
-| `npm run db:seed` | Load seed data into an empty database |
-| `npm run db:reset` | Drop, re-migrate and re-seed (development only) |
-| `npm run typecheck` / `npm run lint` | Static checks |
+| `npm run typecheck` | TypeScript |
+| `npm run lint` | ESLint |
+| `npm run build` | Production build |
+| `npm run e2e` | Every role and flow in a headless browser against a running app with demo data (`npx playwright install chromium` once) |
+| `npm run screenshots` | The same run, also refreshing `docs/screenshots` (use a freshly seeded database) |
+
+GitHub Actions (`.github/workflows/ci.yml`) runs all of them on every push against a real PostgreSQL. Run it manually with **screenshots** ticked to get fresh screenshots as a download.
+
+## Other commands
+
+| Command | What it does |
+| --- | --- |
+| `npm run db:deploy` | Apply new database migrations (safe on live data) |
+| `npm run db:setup` | Create the standard lists and approval rules, no demo data |
+| `npm run db:seed` | Load demo data into an empty database |
+| `npm run db:migrate` | Create a migration after changing `prisma/schema.prisma` (development) |
+| `npm run db:reset` | Delete everything and reload demo data (development only) |
+| `npm run db:studio` | Browse the database |
 
 ## Project layout
 
 ```
-prisma/                 schema, migrations, seed + Sep 25 stock data
-src/app/(app)/          signed-in pages (dashboard, stock, distributions, approvals, reports, admin)
-src/app/api/            uploads, templates, report exports, request export, health check
-src/app/actions/        server actions (stock, requests/workflow, admin, auth, search)
-src/lib/server/         workflow engine, Excel import/export, reports, PDF, session, audit
-src/components/app/     product components (size runs, stock gauge, approval queue, upload flow…)
-src/components/ui/      shadcn/ui primitives
+prisma/schema.prisma        Database model: stock items, requests, lines, approvals, ledger, audit log, users, settings
+prisma/migrations/          Database migrations (applied with prisma migrate deploy)
+prisma/base-data.ts         Standard lists and default approval rules
+prisma/setup.ts · seed.ts   Production setup · demo data (from the Sep 25 tracker)
+src/middleware.ts           Sends signed-out visitors to /login; security headers
+src/app/(app)/              Signed-in pages: overview, stock, distributions, stock inward, requests, approvals, reports, admin, profile
+src/app/login/              Sign-in
+src/app/api/                Excel uploads and templates, report exports, request export, error reports, health check
+src/app/actions/            Server actions: stock, requests and approvals, admin, sign-in, search
+src/lib/server/workflow.ts  Approval engine: submit, approve, reject, stock posting, availability checks
+src/lib/server/imports.ts   Excel validation for stock, distribution and stock inward uploads
+src/lib/server/reports.ts   The five reports; pdf.ts and excel.ts write the files
+src/lib/roles.ts            Roles and what each may do
+src/components/app/         App components (size runs, stock gauge, approval queue, upload flow…)
+src/components/ui/          shadcn/ui building blocks
+scripts/e2e.mjs             End-to-end test and screenshot capture
+docs/                       User guide, setup and deployment guide, BRD traceability, screenshots
 ```
+
+Built with Next.js 15, TypeScript, PostgreSQL with Prisma 6, shadcn/ui on Radix with Tailwind CSS 4, ExcelJS and jsPDF. Sign-in uses bcrypt password hashes and a signed, http-only session cookie.
+
+## Later
+
+- **Company single sign-on:** replace the password check in `src/app/actions/auth.ts` with a Microsoft Entra ID (OpenID Connect) callback that creates the same session, and map Entra groups to the four roles. Nothing else needs to change.
+- **Email notifications** to approvers when a request is submitted, and to the executive when it's returned.
+- **Stock adjustments** for damaged or lost items, using the existing `ADJUSTMENT` ledger type.

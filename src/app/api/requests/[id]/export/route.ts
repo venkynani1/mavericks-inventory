@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db"
 import { buildWorkbook, xlsxResponse } from "@/lib/server/excel"
 import { getUser } from "@/lib/server/session"
+import { notFound, unauthorized } from "@/lib/server/api"
 import { fmtDate } from "@/lib/utils"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await getUser())) return new Response("Not signed in", { status: 401 })
+  if (!(await getUser())) return unauthorized()
   const { id } = await params
   const r = await prisma.request.findUnique({ where: { id } })
-  if (!r) return new Response("Not found", { status: 404 })
+  if (!r) return notFound("Request")
   let sheet
   if (r.type === "DISTRIBUTION") {
     const lines = await prisma.distributionLine.findMany({ where: { requestId: id }, include: { stockItem: true }, orderBy: { createdAt: "asc" } })

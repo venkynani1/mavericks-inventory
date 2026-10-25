@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 import type { SessionUser } from "@/lib/server/session"
 import { getSettings } from "@/lib/server/settings"
 import { isOverdue } from "@/lib/server/workflow"
-import { fmtDate, fmtNum } from "@/lib/utils"
+import { count as plural, fmtDate, fmtNum } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Panel } from "./page-header"
@@ -52,7 +52,7 @@ export async function RequestsList({ user, type, sp, path, emptyHint }: { user: 
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Segmented param="scope" options={user.role === "EXECUTIVE" ? [{ value: "mine", label: "Mine" }, { value: "all", label: "Everyone's" }] : [{ value: "all", label: "Everyone's" }, { value: "mine", label: "Mine" }]} />
-          <SearchFilter placeholder="Search number, title or purpose" />
+          <SearchFilter placeholder="Search number, title or purpose…" />
         </div>
       </div>
       <Panel className="overflow-hidden">
@@ -78,7 +78,7 @@ export async function RequestsList({ user, type, sp, path, emptyHint }: { user: 
                         <span className="truncate font-medium group-hover:text-primary">{r.title}</span>
                         <span className="num text-xs text-muted-foreground">
                           {r.number}
-                          {r.purpose ? ` · ${r.purpose}` : ""}
+                          {r.purpose ? `, ${r.purpose}` : ""}
                         </span>
                       </Link>
                     </TableCell>
@@ -87,7 +87,7 @@ export async function RequestsList({ user, type, sp, path, emptyHint }: { user: 
                     <TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">{fmtDate(r.decidedAt ?? r.submittedAt ?? r.createdAt)}</TableCell>
                     <TableCell className="num text-right">
                       {fmtNum(r.totalQty)}
-                      <span className="block text-xs text-muted-foreground">{fmtNum(r.lineCount)} lines</span>
+                      <span className="block text-xs text-muted-foreground">{plural(r.lineCount, "line")}</span>
                     </TableCell>
                     <TableCell className="pr-5">
                       <div className="flex flex-col items-start gap-1">

@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      screenshots:
+        description: "Also regenerate docs/screenshots and attach them to the run"
+        type: boolean
+        default: false
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mavericks
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mavericks
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/mavericks
+      AUTH_SECRET: ci-only-auth-secret-0123456789abcdef0123456789abcdef
+      SEED_PASSWORD: Mavericks@2026
+      DEMO_MODE: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create tables and load demo data
+        run: |
+          npx prisma migrate deploy
+          npm run db:seed
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Start server
+        run: |
+          npm run start > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then echo "Server is up"; exit 0; fi
+            sleep 1
+          done
+          echo "Server did not start"; cat server.log; exit 1
+
+      - name: Install browser for end-to-end test
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end test (every role and flow)
+        run: npm run e2e 2>&1 | tee e2e.log; exit ${PIPESTATUS[0]}
+        env:
+          BASE_URL: http://localhost:3000
+          SCREENSHOTS: ${{ inputs.screenshots && '1' || '0' }}
+
+      - name: Attach screenshots
+        if: inputs.screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/screenshots
+
+      - name: Server log
+        if: always()
+        run: cat server.log || true
+
+      - name: Annotate failure
+        if: failure()
+        run: |
+          annotate() { local title="$1" file="$2"; [ -f "$file" ] || return 0
+            local body; body=$(tail -n 60 "$file" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
+            echo "::error title=$title::$body"; }
+          annotate "End-to-end test output" e2e.log
+          annotate "Server log" server.log

@@ -9,7 +9,7 @@ import { searchEverything } from "@/app/actions/search"
 import { logout } from "@/app/actions/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,10 +46,16 @@ export function Topbar({ user }: { user: { name: string; email: string; role: Ro
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  // Ask the server only when there's something to search for. An idle server call on every page load
+  // was racing with page navigation and occasionally cancelled it.
   useEffect(() => {
+    if (!open || q.trim().length < 2) {
+      setRes({ items: [], requests: [] })
+      return
+    }
     const t = setTimeout(() => start(async () => setRes(await searchEverything(q))), 180)
     return () => clearTimeout(t)
-  }, [q])
+  }, [q, open])
 
   const go = (href: string) => {
     setOpen(false)
@@ -109,8 +115,9 @@ export function Topbar({ user }: { user: { name: string; email: string; role: Ro
         </DropdownMenu>
       </div>
 
-      <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Find stock items and requests">
-        <CommandInput placeholder="Type an item name, stock code or request number" value={q} onValueChange={setQ} />
+      <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Find stock items and requests" className="sm:max-w-xl">
+        <Command shouldFilter={false}>
+        <CommandInput placeholder="Type an item name, stock code or request number…" value={q} onValueChange={setQ} />
         <CommandList>
           <CommandEmpty>{q.trim().length < 2 ? "Type at least two characters." : "Nothing matches that search."}</CommandEmpty>
           {res.items.length > 0 && (
@@ -120,7 +127,7 @@ export function Topbar({ user }: { user: { name: string; email: string; role: Ro
                   <BoxIcon />
                   <span className="truncate">{i.name}</span>
                   <span className="num ml-auto text-xs text-muted-foreground">
-                    {i.code} · {i.status === "DRAFT" ? "draft" : `${i.availableQty} available`}
+                    {i.code}, {i.status === "DRAFT" ? "awaiting approval" : `${i.availableQty} available`}
                   </span>
                 </CommandItem>
               ))}
@@ -141,6 +148,7 @@ export function Topbar({ user }: { user: { name: string; email: string; role: Ro
             </CommandGroup>
           )}
         </CommandList>
+        </Command>
       </CommandDialog>
     </header>
   )

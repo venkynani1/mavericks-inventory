@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/server/session"
 import { getSettings } from "@/lib/server/settings"
 import { availabilityShortfalls, isOverdue } from "@/lib/server/workflow"
 import { pickableItems } from "@/lib/server/pick-items"
-import { cn, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
+import { cn, count, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -191,7 +191,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
             <TableRow className="hover:bg-transparent">
               <TableHead className="pl-5">Item</TableHead>
               <TableHead className="hidden md:table-cell">Category</TableHead>
-              <TableHead className="hidden lg:table-cell">Size · colour · brand</TableHead>
+              <TableHead className="hidden lg:table-cell">Variant</TableHead>
               <TableHead className="text-right">Opening qty</TableHead>
               {editable && <TableHead className="pr-5"><span className="sr-only">Actions</span></TableHead>}
             </TableRow>
@@ -204,7 +204,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
                   <span className="num text-xs text-muted-foreground">{i.code}</span>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">{i.category.name}</TableCell>
-                <TableCell className="hidden text-muted-foreground lg:table-cell">{[i.size, i.color, i.brand].filter(Boolean).join(" · ") || "—"}</TableCell>
+                <TableCell className="hidden text-muted-foreground lg:table-cell">{[i.size, i.color, i.brand].filter(Boolean).join(", ") || "—"}</TableCell>
                 <TableCell className="num text-right">{fmtNum(i.openingQty)}</TableCell>
                 {editable && (
                   <TableCell className="pr-5">
@@ -232,16 +232,12 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
       <PageHeader
         title={req.title}
         description={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="num">{req.number}</span>
-            <span aria-hidden>·</span>
-            {typeLabel(req.type)}
-            {req.purpose && (
-              <>
-                <span aria-hidden>·</span>
-                {req.purpose}
-              </>
-            )}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="num rounded bg-muted px-1.5 py-0.5 text-foreground">{req.number}</span>
+            <span>
+              {typeLabel(req.type)}
+              {req.purpose ? ` for ${req.purpose}` : ""}
+            </span>
           </span>
         }
         actions={
@@ -332,7 +328,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
           <Panel className="overflow-hidden">
             <PanelHeader
               title={req.type === "STOCK_MASTER" ? "New items" : "Lines"}
-              description={`${fmtNum(req.lineCount)} ${req.type === "STOCK_MASTER" ? "items" : "lines"} · ${fmtNum(req.totalQty)} units`}
+              description={`${req.type === "STOCK_MASTER" ? count(req.lineCount, "item") : count(req.lineCount, "line")}, ${count(req.totalQty, "unit")}`}
             />
             {table}
             {req.lineCount > LINES_PER_PAGE && <Pager page={page} pageSize={LINES_PER_PAGE} total={req.lineCount} params={{}} path={`/requests/${id}`} />}
@@ -379,7 +375,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
                   {i < req.events.length - 1 && <span className="absolute top-3 left-[4.5px] h-full w-px bg-border" aria-hidden />}
                   <div className="flex min-w-0 flex-col text-sm">
                     <span>
-                      <span className="font-medium">{e.actor.name}</span> — {ACTION[e.action].label.toLowerCase()}
+                      {ACTION[e.action].label} by <span className="font-medium">{e.actor.name}</span>
                       {e.level > 0 && ` at level ${e.level}`}
                     </span>
                     <time className="text-xs text-muted-foreground">{fmtDateTime(e.createdAt)}</time>
@@ -390,7 +386,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
               {req.status === "SUBMITTED" && (
                 <li className="relative flex gap-3">
                   <span className="relative z-10 mt-1.5 size-2.5 shrink-0 rounded-full border-2 border-dashed border-pending bg-card" />
-                  <span className="text-sm text-muted-foreground">Waiting for level {level} — {level === 1 ? "Manager or Management Authority" : "Management Authority"}</span>
+                  <span className="text-sm text-muted-foreground">Waiting for level {level}: {level === 1 ? "a Manager or Management Authority" : "a Management Authority"}</span>
                 </li>
               )}
             </ol>

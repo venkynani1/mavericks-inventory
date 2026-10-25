@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import { cn, count } from "@/lib/utils"
 import { ItemPicker, type PickItem } from "./item-picker"
+import { useUnsavedGuard } from "./use-unsaved-guard"
 
 type Line = { key: number; stockItemId: string; quantity: string; recipientId: string; recipientName: string }
 
@@ -31,6 +32,8 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
   const [remarks, setRemarks] = useState("")
   const [lines, setLines] = useState<Line[]>([{ key: k++, stockItemId: defaultItem ?? "", quantity: "1", recipientId: "", recipientName: "" }])
   const [tried, setTried] = useState(false)
+  const [saved, setSaved] = useState(false)
+  useUnsavedGuard(!saved && (title.trim() !== "" || lines.some((l) => l.recipientName || l.recipientId)))
 
   const update = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)))
 
@@ -59,7 +62,8 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
         setError(res.error)
         return
       }
-      toast.success(`${res.message} — ${res.data?.number}`)
+      setSaved(true)
+      toast.success(`${res.message}: ${res.data?.number}`)
       router.push(`/requests/${res.data?.id}`)
     })
   }
@@ -79,7 +83,7 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
           <FieldGroup className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <Field className="md:col-span-2 xl:col-span-3" data-invalid={(tried && title.trim().length < 3) || undefined}>
               <FieldLabel htmlFor="title">Request title</FieldLabel>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Onboarding batch 21 — welcome kits" aria-invalid={(tried && title.trim().length < 3) || undefined} />
+              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Onboarding batch 21 welcome kits…" aria-invalid={(tried && title.trim().length < 3) || undefined} />
             </Field>
             <Field>
               <FieldLabel htmlFor="purpose">Purpose</FieldLabel>
@@ -125,7 +129,7 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
             </Field>
             <Field className="md:col-span-2">
               <FieldLabel htmlFor="remarks">Remarks for the approver</FieldLabel>
-              <Textarea id="remarks" rows={1} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional — e.g. link to the event mail" />
+              <Textarea id="remarks" rows={1} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional. For example, the event mail subject…" />
             </Field>
           </FieldGroup>
         </FieldSet>
@@ -136,7 +140,7 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
           <div>
             <h2 className="text-[15px] font-semibold">Items and recipients</h2>
             <p className="num text-sm text-muted-foreground">
-              {lines.length} line{lines.length > 1 ? "s" : ""} · {totalUnits} unit{totalUnits === 1 ? "" : "s"}
+              {count(lines.length, "line")}, {count(totalUnits, "unit")}
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, { key: k++, stockItemId: ls.at(-1)?.stockItemId ?? "", quantity: "1", recipientId: "", recipientName: "" }])}>
@@ -162,7 +166,7 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
                   {it && <span className={cn("num text-xs", short ? "text-rejected" : "text-muted-foreground")}>{short ? `Only ${it.available} available for all lines combined` : `${it.available} available`}</span>}
                 </div>
                 <Input aria-label={`Quantity, line ${idx + 1}`} type="number" min={1} step={1} inputMode="numeric" className="num h-9" value={l.quantity} onChange={(e) => update(l.key, { quantity: e.target.value })} />
-                <Input aria-label={`Employee ID, line ${idx + 1}`} placeholder="Emp ID" className="h-9" value={l.recipientId} onChange={(e) => update(l.key, { recipientId: e.target.value })} />
+                <Input aria-label={`Employee ID, line ${idx + 1}`} placeholder="Emp ID" className="h-9" spellCheck={false} autoComplete="off" value={l.recipientId} onChange={(e) => update(l.key, { recipientId: e.target.value })} />
                 <Input aria-label={`Recipient name, line ${idx + 1}`} placeholder="Recipient name" className="h-9" value={l.recipientName} aria-invalid={(tried && l.recipientName.trim().length < 2) || undefined} onChange={(e) => update(l.key, { recipientName: e.target.value })} />
                 <Button type="button" variant="ghost" size="icon" aria-label={`Remove line ${idx + 1}`} disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>
                   <Trash2Icon />
@@ -171,7 +175,7 @@ export function DistributionForm({ items, purposes, locations, defaultItem, me }
             )
           })}
         </ul>
-        <p className="border-t px-5 py-3 text-xs text-muted-foreground">Recording more than a few dozen people? Use Upload Excel instead — it takes your existing recipient sheet.</p>
+        <p className="border-t px-5 py-3 text-xs text-muted-foreground">Recording more than a few dozen people? Use Upload Excel instead. It accepts your existing recipient sheet.</p>
       </section>
 
       {over.length > 0 && (

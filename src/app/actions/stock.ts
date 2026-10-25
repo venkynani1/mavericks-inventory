@@ -51,7 +51,7 @@ export async function createStockItem(input: StockItemInput) {
       })
       if (!req) {
         req = await tx.request.create({
-          data: { number: await nextRequestNumber(tx, "STOCK_MASTER"), type: "STOCK_MASTER", title: "New stock items", createdById: user.id },
+          data: { number: await nextRequestNumber(tx, "STOCK_MASTER"), type: "STOCK_MASTER", title: `Items added by ${user.name}`, createdById: user.id },
         })
       }
       const item = await tx.stockItem.create({

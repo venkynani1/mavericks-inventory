@@ -84,7 +84,7 @@ export default async function Approvals() {
                   </Link>
                 </TableCell>
                 <TableCell className={e.action === "APPROVED" ? "text-approved" : "text-rejected"}>
-                  {e.action === "APPROVED" ? "Approved" : "Returned"} {e.level ? `· L${e.level}` : ""}
+                  {e.action === "APPROVED" ? "Approved" : "Returned"}{e.level ? ` at level ${e.level}` : ""}
                 </TableCell>
                 <TableCell className="hidden max-w-72 truncate text-muted-foreground md:table-cell">{e.remarks ?? "—"}</TableCell>
                 <TableCell className="pr-5 text-right whitespace-nowrap text-muted-foreground">{fmtDateTime(e.createdAt)}</TableCell>

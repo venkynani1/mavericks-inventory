@@ -1,5 +1,6 @@
 import { importLines, importStockMaster } from "@/lib/server/imports"
 import { AppError, assertPermission } from "@/lib/server/session"
+import { apiError, codeFor } from "@/lib/server/api"
 
 export const maxDuration = 300
 export const dynamic = "force-dynamic"
@@ -27,8 +28,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     if (!result) throw new AppError("Unknown upload type.", 404)
     return Response.json(result)
   } catch (e) {
-    if (e instanceof AppError) return Response.json({ error: e.message }, { status: e.status })
+    if (e instanceof AppError) return apiError(e.status, codeFor(e.status), e.message)
     console.error(e)
-    return Response.json({ error: "The file couldn't be read. Check it opens in Excel, then try again." }, { status: 400 })
+    return apiError(400, "UNREADABLE_FILE", "The file couldn't be read. Check it opens in Excel, then try again.")
   }
 }

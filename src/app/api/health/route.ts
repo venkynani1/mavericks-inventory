@@ -8,6 +8,6 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`
     return Response.json({ status: "ok", db: "ok", time: new Date().toISOString() })
   } catch {
-    return Response.json({ status: "degraded", db: "unreachable" }, { status: 503 })
+    return Response.json({ status: "degraded", db: "unreachable", error: { code: "DATABASE_UNREACHABLE", message: "The database can't be reached." } }, { status: 503 })
   }
 }

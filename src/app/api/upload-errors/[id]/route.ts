@@ -2,13 +2,14 @@ import { prisma } from "@/lib/db"
 import { buildWorkbook, xlsxResponse } from "@/lib/server/excel"
 import type { RowError } from "@/lib/server/imports"
 import { getUser } from "@/lib/server/session"
+import { notFound, unauthorized } from "@/lib/server/api"
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser()
-  if (!user) return new Response("Not signed in", { status: 401 })
+  if (!user) return unauthorized()
   const { id } = await params
   const b = await prisma.uploadBatch.findUnique({ where: { id } })
-  if (!b || (b.createdBy !== user.id && user.role !== "ADMIN")) return new Response("Not found", { status: 404 })
+  if (!b || (b.createdBy !== user.id && user.role !== "ADMIN")) return notFound("Upload")
   const errors = (b.errors as RowError[] | null) ?? []
   const buf = await buildWorkbook([
     {

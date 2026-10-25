@@ -20,10 +20,13 @@ const userSchema = z.object({
 })
 export type UserInput = z.input<typeof userSchema>
 
+// No look-alike characters (0/O, 1/l/I), so a password read out over a call is typed correctly first time.
+const SAFE = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 function tempPassword() {
-  // Readable but strong: 4 letters + 4 digits + symbol + 3 letters
-  const b = randomBytes(12).toString("base64").replace(/[^A-Za-z]/g, "")
-  return `${b.slice(0, 4)}${Math.floor(1000 + Math.random() * 9000)}!${b.slice(4, 7)}`
+  const bytes = randomBytes(12)
+  const chars = Array.from(bytes, (b) => SAFE[b % SAFE.length])
+  // e.g. "K7qM-X9rT-4hNc": ~70 bits, grouped for reading aloud
+  return [chars.slice(0, 4), chars.slice(4, 8), chars.slice(8, 12)].map((g) => g.join("")).join("-")
 }
 
 function parse<T>(s: z.ZodType<T>, v: unknown) {

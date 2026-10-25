@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { cn, fmtNum } from "@/lib/utils"
+import { cn, count, fmtNum } from "@/lib/utils"
 
 export type QueueRow = {
   id: string
@@ -94,7 +94,7 @@ export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
                   <Link href={`/requests/${r.id}`} className="flex flex-col hover:text-primary">
                     <span className="truncate font-medium">{r.title}</span>
                     <span className="num text-xs text-muted-foreground">
-                      {r.number} · {r.type} · level {r.level} of {r.required}
+                      {r.type} {r.number}, level {r.level} of {r.required}
                     </span>
                   </Link>
                 </TableCell>
@@ -104,7 +104,7 @@ export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
                 </TableCell>
                 <TableCell className="num text-right">
                   {fmtNum(r.units)}
-                  <span className="block text-xs text-muted-foreground">{fmtNum(r.lines)} lines</span>
+                  <span className="block text-xs text-muted-foreground">{count(r.lines, "line")}</span>
                 </TableCell>
                 <TableCell className="pr-5 text-sm">
                   {r.approvedEarlierByMe ? (

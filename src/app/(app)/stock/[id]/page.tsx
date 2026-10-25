@@ -4,7 +4,7 @@ import { notFound } from "next/navigation"
 import { ArrowDownToLineIcon, DownloadIcon, PackageOpenIcon, PencilIcon } from "lucide-react"
 import { prisma } from "@/lib/db"
 import { requireUser } from "@/lib/server/session"
-import { fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
+import { count, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -111,7 +111,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
           <Panel className="p-5">
             <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4">
               <Figure label="Stocked so far" value={fmtNum(total)} hint={`${fmtNum(item.openingQty)} opening + ${fmtNum(item.receivedQty)} inward`} />
-              <Figure label="Handed out" value={fmtNum(item.distributedQty)} hint={`${recipients.length >= 200 ? "200+" : recipients.length} approved lines`} />
+              <Figure label="Handed out" value={fmtNum(item.distributedQty)} hint={recipients.length >= 200 ? "200+ approved lines" : count(recipients.length, "approved line")} />
               <Figure label="In review" value={fmtNum(inReview)} hint="Not yet deducted" />
               <Figure label="Available" value={fmtNum(item.availableQty)} hint={inReview ? `${fmtNum(Math.max(0, item.availableQty - inReview))} after pending requests` : "Ready to distribute"} strong />
             </div>

@@ -26,7 +26,7 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 | 9.1 | RBAC, segregation of duties, secure uploads, controlled audit access | `src/lib/roles.ts` permission matrix; checks in every page, action and route; uploads limited to signed .xlsx ZIP files ≤15 MB |
 | 9.2 | Excel uploads up to 50,000 rows | `MAX_ROWS = 50_000`, batched `createMany` in chunks of 5,000 |
 | 9.2 | Approval actions within 3 seconds | Single transaction per approval with aggregated per-item updates (one `UPDATE` per item, not per line) |
-| 9.3 | 99.5% uptime | Stateless app + managed PostgreSQL; `/api/health` for load balancers; multi-instance guidance in DEPLOYMENT.md |
+| 9.3 | 99.5% uptime | Stateless app + managed PostgreSQL; `/api/health` for load balancers; multi-instance guidance in SETUP-AND-DEPLOYMENT.md |
 | 11 | Approval delays → escalation | `escalationHours` flags overdue requests on the dashboard, approval queue and Pending Approval report |
 
 ## Beyond the BRD
@@ -37,3 +37,6 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 - Bulk approval from the queue, with per-request stock checks.
 - Global search (Ctrl K) across items and requests.
 - Light and dark themes, keyboard navigation, mobile layout.
+- Production start without demo accounts: the first administrator is created from a one-time bootstrap sign-in, and one-time passwords must be replaced before anything else.
+- Automated end-to-end test of every role and flow (41 checks in a real browser), run by GitHub Actions on every push.
+- Illustrated user guide and a step-by-step setup and deployment guide for Vercel, AWS, Azure and self-hosting.

@@ -28,7 +28,7 @@ export default async function Audit({ searchParams }: { searchParams: Promise<{ 
       <PageHeader title="Audit log" description="Every sign-in, change and decision, newest first. Entries can't be edited or deleted. Changes keep the before and after values." />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SelectFilter param="entity" label="Record type" allLabel="All record types" options={entities.map((e) => ({ value: e.entity, label: e.entity }))} />
-        <SearchFilter placeholder="Search person, action or summary" />
+        <SearchFilter placeholder="Search person, action or summary…" />
       </div>
       <Panel className="overflow-hidden">
         <Table>

@@ -1,8 +1,13 @@
-# Local production-like stack: `docker compose up --build`, then seed with
-#   docker compose exec app node node_modules/prisma/build/index.js db seed   (or run `npm run db:seed` from your machine)
+# App + PostgreSQL on one machine (pilot, UAT or a small team).
+#   1. Change AUTH_SECRET, BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD below.
+#   2. docker compose up -d --build
+#   3. Open http://localhost:3000 and sign in with the bootstrap email and password to create the first administrator.
+# Demo data instead: set DEMO_MODE to "true", then from the project folder on your computer run
+#   DATABASE_URL=postgresql://mav:mav@localhost:5432/mavericks DIRECT_URL=postgresql://mav:mav@localhost:5432/mavericks npm run db:seed
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: mav
       POSTGRES_PASSWORD: mav
@@ -15,13 +20,16 @@ services:
       retries: 10
   app:
     build: .
+    restart: unless-stopped
     depends_on:
       db: { condition: service_healthy }
     environment:
       DATABASE_URL: postgresql://mav:mav@db:5432/mavericks
       DIRECT_URL: postgresql://mav:mav@db:5432/mavericks
-      AUTH_SECRET: change-me-to-a-long-random-string-of-48-chars-min
-      DEMO_MODE: "true"
+      AUTH_SECRET: change-me-to-a-long-random-string-of-48-characters-or-more
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      BOOTSTRAP_ADMIN_PASSWORD: change-me-now-2026
+      DEMO_MODE: "false"
     ports: ["3000:3000"]
 volumes:
   pgdata:

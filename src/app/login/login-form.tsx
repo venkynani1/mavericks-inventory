@@ -20,7 +20,7 @@ export function LoginForm({ next, demo }: { next: string; demo: { email: string;
         <FieldGroup>
           <Field data-invalid={!!state.error || undefined}>
             <FieldLabel htmlFor="email">Work email</FieldLabel>
-            <Input ref={email} id="email" name="email" type="email" autoComplete="username" required defaultValue={state.email} aria-invalid={!!state.error || undefined} className="h-10" />
+            <Input ref={email} id="email" name="email" type="email" autoComplete="username" spellCheck={false} required defaultValue={state.email} aria-invalid={!!state.error || undefined} className="h-10" />
           </Field>
           <Field data-invalid={!!state.error || undefined}>
             <FieldLabel htmlFor="password">Password</FieldLabel>

@@ -73,7 +73,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
           <>
             <SelectFilter param="category" label="Category" allLabel="All categories" options={lookups.categories} />
             <SelectFilter param="stock" label="Stock level" allLabel="Any stock level" options={[{ value: "low", label: "Low stock" }, { value: "out", label: "Out of stock" }]} />
-            <SearchFilter placeholder="Item name or code" />
+            <SearchFilter placeholder="Item name or code…" />
           </>
         )}
         {key === "distributed" && (
@@ -83,14 +83,14 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             <SelectFilter param="purpose" label="Purpose" allLabel="All purposes" options={lookups.purposes.map((p) => ({ value: p, label: p }))} />
             <SelectFilter param="location" label="Location" allLabel="All locations" options={lookups.locations.map((p) => ({ value: p, label: p }))} />
             <SelectFilter param="item" label="Item" allLabel="All items" options={items.map((i) => ({ value: i.id, label: i.name }))} className="max-w-72" />
-            <SearchFilter placeholder="Recipient name or Emp ID" />
+            <SearchFilter placeholder="Recipient name or Emp ID…" />
           </>
         )}
         {key === "approvals" && (
           <>
             <DateFilter param="from" label="From" />
             <DateFilter param="to" label="To" />
-            <SearchFilter placeholder="Request number or title" />
+            <SearchFilter placeholder="Request number or title…" />
           </>
         )}
         {key === "ledger" && (

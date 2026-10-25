@@ -62,19 +62,19 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const groups = new Map<string, SizeCell[]>()
   for (const i of items) {
     if (!["Apparel", "Welcome Kits"].includes(i.category.name) || !i.size) continue
-    const key = `${i.product}${i.color ? ` · ${i.color}` : ""}`
+    const key = `${i.product}${i.color ? ` (${i.color})` : ""}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push({ id: i.id, size: i.size, available: i.availableQty, total: i.openingQty + i.receivedQty, reorder: i.reorderLevel })
   }
   const runs = [...groups.entries()].filter(([, c]) => c.length >= 3).sort((a, b) => b[1].length - a[1].length)
   const purposeMax = Math.max(1, ...purposes.map((p) => p._sum.quantity ?? 0))
-  const firstName = user.name.split(" ")[0]
+  const today = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }).format(new Date())
 
   return (
     <>
       <PageHeader
-        title={`Hello, ${firstName}`}
-        description={`${fmtNum(onHand)} units on hand across ${items.length} items. Figures update the moment a request gets final approval.`}
+        title="Overview"
+        description={`${today}. ${fmtNum(onHand)} units on hand across ${items.length} items. Figures change only when a request gets final approval.`}
         actions={
           user.role === "EXECUTIVE" ? (
             <>
@@ -115,7 +115,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           <ClipboardCheckIcon className="size-4 text-pending" />
           <span>
             <strong className="font-semibold">{waitingForMe.length} request{waitingForMe.length > 1 ? "s" : ""}</strong> waiting for your approval
-            {overdue > 0 && <span className="text-pending"> — {overdue} older than {settings.escalationHours} hours</span>}
+            {overdue > 0 && <span className="text-pending">, {overdue} waiting more than {settings.escalationHours} hours</span>}
           </span>
           <span className="ml-auto font-medium text-pending">Open queue</span>
         </Link>
@@ -210,7 +210,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">{i.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {i.code} · reorder at {i.reorderLevel}
+                      {i.code}, reorder at {i.reorderLevel}
                     </span>
                   </div>
                   <StockGauge available={i.availableQty} total={i.openingQty + i.receivedQty} reorder={i.reorderLevel} className="w-48" />
@@ -237,7 +237,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                       {e.level > 0 && <span className="text-muted-foreground"> (level {e.level})</span>}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {typeLabel(e.request.type)} · {e.request.title}
+                      {typeLabel(e.request.type)}: {e.request.title}
                     </span>
                     {e.remarks && <span className="text-xs text-muted-foreground italic">“{e.remarks}”</span>}
                   </div>

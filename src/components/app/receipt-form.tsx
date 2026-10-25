@@ -10,6 +10,7 @@ import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/componen
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { ItemPicker, type PickItem } from "./item-picker"
+import { useUnsavedGuard } from "./use-unsaved-guard"
 
 type Line = { key: number; stockItemId: string; quantity: string; remarks: string }
 const today = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
@@ -25,6 +26,8 @@ export function ReceiptForm({ items, defaultItem }: { items: PickItem[]; default
   const [lines, setLines] = useState<Line[]>([{ key: k++, stockItemId: defaultItem ?? "", quantity: "", remarks: "" }])
   // Receiving stock is allowed for items at zero, so lift the availability guard in the picker.
   const pickItems = items.map((i) => ({ ...i, available: Math.max(i.available, 1) }))
+  const [saved, setSaved] = useState(false)
+  useUnsavedGuard(!saved && (title.trim() !== "" || lines.some((l) => l.quantity)))
   const update = (key: number, p: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...p } : l)))
 
   const save = (submit: boolean) => {
@@ -32,7 +35,8 @@ export function ReceiptForm({ items, defaultItem }: { items: PickItem[]; default
     start(async () => {
       const res = await createReceipt({ title, purpose: reference, submit, lines: lines.map((l) => ({ stockItemId: l.stockItemId, quantity: l.quantity, receivedOn: date, remarks: l.remarks })) })
       if (!res.ok) return setError(res.error)
-      toast.success(`${res.message} — ${res.data?.number}`)
+      setSaved(true)
+      toast.success(`${res.message}: ${res.data?.number}`)
       router.push(`/requests/${res.data?.id}`)
     })
   }
@@ -45,11 +49,11 @@ export function ReceiptForm({ items, defaultItem }: { items: PickItem[]; default
           <FieldGroup className="grid gap-5 md:grid-cols-3">
             <Field className="md:col-span-3">
               <FieldLabel htmlFor="title">Request title</FieldLabel>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Crocodile T-shirt replenishment" />
+              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Crocodile T-shirt replenishment…" />
             </Field>
             <Field className="md:col-span-2">
               <FieldLabel htmlFor="ref">PO, invoice or vendor reference</FieldLabel>
-              <Input id="ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PO 4512 — Crocodile" />
+              <Input id="ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PO 4512, Crocodile Apparels…" />
             </Field>
             <Field>
               <FieldLabel htmlFor="date">Received on</FieldLabel>
@@ -71,7 +75,7 @@ export function ReceiptForm({ items, defaultItem }: { items: PickItem[]; default
             <li key={l.key} className="grid gap-3 px-5 py-2 md:grid-cols-[minmax(0,2fr)_110px_minmax(0,1.2fr)_40px]">
               <ItemPicker items={pickItems} value={l.stockItemId} onChange={(id) => update(l.key, { stockItemId: id })} />
               <Input aria-label={`Quantity received, line ${idx + 1}`} placeholder="Qty" type="number" min={1} className="num h-9" value={l.quantity} onChange={(e) => update(l.key, { quantity: e.target.value })} />
-              <Input aria-label={`Remarks, line ${idx + 1}`} placeholder="Remarks (carton numbers…)" className="h-9" value={l.remarks} onChange={(e) => update(l.key, { remarks: e.target.value })} />
+              <Input aria-label={`Remarks, line ${idx + 1}`} placeholder="Remarks (carton numbers…)…" className="h-9" value={l.remarks} onChange={(e) => update(l.key, { remarks: e.target.value })} />
               <Button type="button" variant="ghost" size="icon" aria-label={`Remove line ${idx + 1}`} disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>
                 <Trash2Icon />
               </Button>

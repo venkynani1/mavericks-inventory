@@ -11,6 +11,7 @@
 import { PrismaClient, type Role } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import stockRows from "./seed-data/stock-sep25.json"
+import { ensureBaseData } from "./base-data"
 
 const prisma = new PrismaClient()
 const DAY = 86400_000
@@ -45,7 +46,6 @@ function purposesFor(name: string): string[] {
 const FIRST = ["Aarav", "Diya", "Ishaan", "Ananya", "Vihaan", "Saanvi", "Arjun", "Meera", "Kabir", "Nithya", "Rohan", "Kavya", "Siddharth", "Lakshmi", "Varun", "Pooja", "Aditya", "Harini", "Nikhil", "Sneha", "Karthik", "Riya", "Pranav", "Divya", "Surya", "Tanvi", "Rahul", "Keerthi", "Vikram", "Asha"]
 const LAST = ["Iyer", "Reddy", "Nair", "Sharma", "Rao", "Menon", "Pillai", "Kumar", "Patil", "Gupta", "Shetty", "Joshi", "Krishnan", "Varma", "Das", "Bhat", "Naidu", "Prasad", "Singh", "Raman"]
 const LOCATIONS = ["Chennai", "Chennai", "Chennai", "Pune", "Mumbai", "Bengaluru"]
-const POCS = ["Kavin Raj", "Divya Menon"]
 
 let seed = 7
 const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -61,23 +61,8 @@ async function main() {
   const password = process.env.SEED_PASSWORD || "Mavericks@2026"
   const hash = await bcrypt.hash(password, 10)
 
-  // ---- settings & masters
-  await prisma.setting.createMany({
-    data: [
-      { key: "approvalLevels", value: "2" },
-      { key: "level2Threshold", value: "100" },
-      { key: "preventNegativeStock", value: "true" },
-      { key: "escalationHours", value: "48" },
-    ],
-  })
-  const lookups = [
-    ...["Chennai", "Pune", "Mumbai", "Bengaluru", "Noida"].map((value, i) => ({ kind: "LOCATION", value, sortOrder: i })),
-    ...["Onboarding", "Internship", "Event - Design-a-thon", "Event - Participation", "Event - La Laurea", "Mavericks Week", "Leaders Connect", "HPL Event", "Corporate Overview", "Farewell"].map((value, i) => ({ kind: "PURPOSE", value, sortOrder: i })),
-    ...["Nos", "Pack", "Box", "Set"].map((value, i) => ({ kind: "UNIT", value, sortOrder: i })),
-  ]
-  await prisma.lookup.createMany({ data: lookups })
-  const cats = ["Apparel", "Welcome Kits", "Drinkware", "Bags", "Electronics", "Stationery", "General"]
-  await prisma.category.createMany({ data: cats.map((name) => ({ name })) })
+  // ---- settings & masters (shared with production setup), demo uses two-level approval above 100 units
+  await ensureBaseData(prisma, { approvalLevels: "2", level2Threshold: "100" })
   const catId = Object.fromEntries((await prisma.category.findMany()).map((c) => [c.name, c.id]))
 
   // ---- users (one per role, plus a second executive)

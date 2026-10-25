@@ -102,7 +102,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <SelectFilter param="category" label="Category" allLabel="All categories" options={categories.map((x) => ({ value: x.id, label: x.name }))} />
-          <SearchFilter placeholder="Search name, code or brand" />
+          <SearchFilter placeholder="Search name, code or brand…" />
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-5">Item</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
-                <TableHead className="hidden lg:table-cell">Size · colour · brand</TableHead>
+                <TableHead className="hidden lg:table-cell">Variant</TableHead>
                 <TableHead className="w-24 sm:w-64">On the shelf</TableHead>
                 <TableHead className="hidden pr-5 sm:table-cell">Status</TableHead>
               </TableRow>
@@ -128,7 +128,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     </Link>
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">{i.category.name}</TableCell>
-                  <TableCell className="hidden text-muted-foreground lg:table-cell">{[i.size, i.color, i.brand].filter(Boolean).join(" · ") || "—"}</TableCell>
+                  <TableCell className="hidden text-muted-foreground lg:table-cell">{[i.size, i.color, i.brand].filter(Boolean).join(", ") || "—"}</TableCell>
                   <TableCell>
                     {i.status === "DRAFT" ? (
                       <span className="num text-sm text-muted-foreground">{i.openingQty} opening, pending</span>

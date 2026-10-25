@@ -11,7 +11,7 @@ export default async function Profile() {
   const u = await requireUser()
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Profile" description={`${u.email} · ${u.empId}`} />
+      <PageHeader title="Profile" description={`${u.email}, employee ID ${u.empId}`} />
       {u.mustChangePw && (
         <Alert className="mb-6 border-pending/30 bg-pending-soft text-pending">
           <AlertTitle>Choose your own password</AlertTitle>

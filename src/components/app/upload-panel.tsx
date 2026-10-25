@@ -64,7 +64,7 @@ export function UploadPanel({ kind, purposes = [] }: { kind: "stock" | "distribu
       if (purpose) fd.append("purpose", purpose)
       const res = await fetch(`/api/uploads/${kind}`, { method: "POST", body: fd })
       const json = await res.json()
-      if (!res.ok) setError(json.error ?? "Upload failed.")
+      if (!res.ok) setError(json.error?.message ?? "Upload failed.")
       else {
         setResult(json)
         router.refresh()
@@ -112,7 +112,7 @@ export function UploadPanel({ kind, purposes = [] }: { kind: "stock" | "distribu
             {file ? (
               <span className="flex flex-col">
                 <span className="font-medium break-all">{file.name}</span>
-                <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB · choose another file</span>
+                <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB. Click to choose another file.</span>
               </span>
             ) : (
               <span>
@@ -128,7 +128,7 @@ export function UploadPanel({ kind, purposes = [] }: { kind: "stock" | "distribu
             <FieldGroup className="mb-3 gap-3">
               <Field>
                 <FieldLabel htmlFor="title">Request title</FieldLabel>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === "distribution" ? "Onboarding batch 21 — welcome kits" : "PO 4512 — Crocodile T-shirts"} />
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === "distribution" ? "Onboarding batch 21 welcome kits" : "PO 4512 Crocodile T-shirts"} />
               </Field>
               {kind === "distribution" && purposes.length > 0 && (
                 <Field>
@@ -168,7 +168,7 @@ export function UploadPanel({ kind, purposes = [] }: { kind: "stock" | "distribu
       )}
 
       {result && (
-        <Panel aria-live="polite">
+        <Panel aria-live="polite" data-testid="upload-result">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b px-5 py-4">
             <div className="flex items-center gap-2">
               {result.valid ? <CheckCircle2Icon className="size-5 text-approved" /> : <TriangleAlertIcon className="size-5 text-rejected" />}
@@ -176,7 +176,7 @@ export function UploadPanel({ kind, purposes = [] }: { kind: "stock" | "distribu
                 {result.valid ? `${fmtNum(result.valid)} of ${fmtNum(result.total)} rows saved as ${c.noun}` : "No rows could be saved"}
               </span>
             </div>
-            {result.errorRows > 0 && <span className="num text-sm text-rejected">{fmtNum(result.errorRows)} rows need fixing</span>}
+            {result.errorRows > 0 && <span className="num text-sm text-rejected">{result.errorRows === 1 ? "1 row needs" : `${fmtNum(result.errorRows)} rows need`} fixing</span>}
             <div className="ml-auto flex flex-wrap gap-2">
               {result.errorRows > 0 && (
                 <Button variant="outline" size="sm" asChild>

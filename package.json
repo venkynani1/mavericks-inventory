@@ -1,20 +1,23 @@
 {
   "name": "mavericks-inventory",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:setup": "tsx prisma/setup.ts",
+    "e2e": "node scripts/e2e.mjs",
+    "screenshots": "SCREENSHOTS=1 node scripts/e2e.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -51,6 +54,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
+    "playwright": "^1.56.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
@@ -60,5 +64,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "description": "Approval-driven stock management for Mavericks goodies, kits and event merchandise."
 }

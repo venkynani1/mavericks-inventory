@@ -5,14 +5,15 @@ import { REPORTS, runReport, type Filters, type ReportKey } from "@/lib/server/r
 import { audit } from "@/lib/server/audit"
 import { getUser } from "@/lib/server/session"
 import { can } from "@/lib/roles"
+import { forbidden, notFound } from "@/lib/server/api"
 
 export const maxDuration = 120
 
 export async function GET(req: Request, { params }: { params: Promise<{ report: string }> }) {
   const user = await getUser()
-  if (!user || !can(user.role, "report:view")) return new Response("Not allowed", { status: 403 })
+  if (!user || !can(user.role, "report:view")) return forbidden()
   const { report } = await params
-  if (!REPORTS.some((r) => r.key === report)) return new Response("Unknown report", { status: 404 })
+  if (!REPORTS.some((r) => r.key === report)) return notFound("Report")
   const sp = new URL(req.url).searchParams
   const f: Filters = Object.fromEntries([...sp.entries()].filter(([k, v]) => k !== "format" && v))
   const format = sp.get("format") === "pdf" ? "pdf" : "xlsx"

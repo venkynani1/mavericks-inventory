@@ -41,3 +41,8 @@ export function initials(name: string) {
 export function normKey(s: string | null | undefined) {
   return (s ?? "").toLowerCase().replace(/\s+/g, " ").replace(/\s*-\s*/g, "-").trim()
 }
+
+/** "1 line", "3 lines", "1,200 units" */
+export function count(n: number, singular: string, plural = `${singular}s`) {
+  return `${fmtNum(n)} ${n === 1 ? singular : plural}`
+}

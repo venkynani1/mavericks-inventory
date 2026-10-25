@@ -15,13 +15,16 @@ export async function middleware(req: NextRequest) {
     } catch {}
   }
   if (valid) {
-    const res = NextResponse.next()
+    // Pass the path to server layouts (used to hold users with a one-time password on the profile page).
+    const headers = new Headers(req.headers)
+    headers.set("x-pathname", pathname)
+    const res = NextResponse.next({ request: { headers } })
     res.headers.set("X-Frame-Options", "DENY")
     res.headers.set("X-Content-Type-Options", "nosniff")
     res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
     return res
   }
-  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+  if (pathname.startsWith("/api/")) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Sign in to continue." } }, { status: 401 })
   const url = req.nextUrl.clone()
   url.pathname = "/login"
   url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + req.nextUrl.search)}`
