@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getUser } from "@/lib/server/session"
+import { prisma } from "@/lib/db"
 import { SSO_ERROR_TEXT, ssoConfig } from "@/lib/server/sso"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { next, sso_error, local } = await searchParams
   const demo = process.env.DEMO_MODE === "true"
   const sso = ssoConfig()
+  // A brand-new database has no accounts; say so instead of letting every sign-in fail silently.
+  const noAccounts = (await prisma.user.count().catch(() => 1)) === 0
   // SSO-only: the password form is hidden except the administrator fallback (?local=1).
   const showPassword = !sso || !sso.ssoOnly || local === "1"
   const ssoHref = `/api/auth/sso/start?next=${encodeURIComponent(next ?? "/")}`
@@ -47,6 +50,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               {sso ? `Use your ${sso.providerName} work account.` : "Use the email your administrator set up for you."}
             </p>
           </div>
+          {noAccounts && (
+            <Alert aria-live="polite">
+              <AlertDescription>
+                <p className="font-medium text-foreground">No accounts exist yet.</p>
+                <p>
+                  For the demo accounts, set <code>SEED_DEMO_DATA</code> to <code>true</code> in the hosting settings and redeploy. For a production start, sign in with{" "}
+                  <code>BOOTSTRAP_ADMIN_EMAIL</code> and <code>BOOTSTRAP_ADMIN_PASSWORD</code>.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
           {sso_error && (
             <Alert variant="destructive" aria-live="polite">
               <AlertDescription>{SSO_ERROR_TEXT[sso_error] ?? "Company sign-in didn't work. Try again."}</AlertDescription>

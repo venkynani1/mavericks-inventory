@@ -62,7 +62,10 @@ async function main() {
   const hash = await bcrypt.hash(password, 10)
 
   // ---- settings & masters (shared with production setup), demo uses two-level approval above 100 units
-  await ensureBaseData(prisma, { approvalLevels: "2", level2Threshold: "100" })
+  await ensureBaseData(prisma)
+  // The demo uses two approval levels above 100 units, even if the database was set up earlier without demo data.
+  for (const [key, value] of Object.entries({ approvalLevels: "2", level2Threshold: "100" }))
+    await prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
   const catId = Object.fromEntries((await prisma.category.findMany()).map((c) => [c.name, c.id]))
 
   // ---- users (one per role, plus a second executive)
