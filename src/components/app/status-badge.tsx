@@ -21,7 +21,7 @@ export function StatusBadge({ status, level, required, className }: { status: Re
   )
 }
 
-const TYPE: Record<string, string> = { STOCK_MASTER: "New stock items", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution" }
+const TYPE: Record<string, string> = { STOCK_MASTER: "New stock items", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution", STOCK_COUNT: "Stock count" }
 export const typeLabel = (t: string) => TYPE[t] ?? t
 
 export function ItemStateBadge({ available, reorder, status }: { available: number; reorder: number; status?: string }) {

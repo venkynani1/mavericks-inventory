@@ -17,6 +17,7 @@ enum Role {
   MANAGER
   AUTHORITY
   ADMIN
+  EMPLOYEE // portal access only: own points, goodies and events
 }
 
 enum ItemStatus {
@@ -29,6 +30,7 @@ enum RequestType {
   STOCK_MASTER // new stock items + opening quantity
   RECEIPT // stock inward (replenishment of an existing item)
   DISTRIBUTION // stock outward to recipients
+  STOCK_COUNT // physical count; approved variances adjust stock
 }
 
 enum RequestStatus {
@@ -55,21 +57,24 @@ enum LedgerType {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  empId        String   @unique
+  id           String    @id @default(cuid())
+  empId        String    @unique
   name         String
-  email        String   @unique
+  email        String    @unique
   passwordHash String
   role         Role
   department   String?
   location     String?
-  active       Boolean  @default(true)
-  mustChangePw Boolean  @default(false)
+  active       Boolean   @default(true)
+  mustChangePw Boolean   @default(false)
   lastLoginAt  DateTime?
   /// Set when the person signs in with company SSO: "<issuer>|<subject>" from the identity provider.
-  ssoSubject   String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  ssoSubject   String?   @unique
+  /// Portal users (role EMPLOYEE) are linked to their employee record.
+  employeeId   String?   @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   requests     Request[]       @relation("RequestCreator")
   approvals    ApprovalEvent[]
@@ -117,6 +122,7 @@ model StockItem {
   // Running balances. Only changed inside approval transactions (see lib/workflow.ts).
   receivedQty    Int        @default(0)
   distributedQty Int        @default(0)
+  adjustedQty    Int        @default(0) // net change from approved stock counts
   availableQty   Int        @default(0)
   status         ItemStatus @default(DRAFT)
   deletedAt      DateTime?
@@ -129,7 +135,9 @@ model StockItem {
 
   receiptLines      ReceiptLine[]
   distributionLines DistributionLine[]
+  countLines        StockCountLine[]
   ledger            LedgerEntry[]
+  milestones        RewardMilestone[]
 
   @@index([status])
   @@index([product])
@@ -158,19 +166,21 @@ model Request {
   masterItems       StockItem[]        @relation("MasterItems")
   receiptLines      ReceiptLine[]
   distributionLines DistributionLine[]
+  countLines        StockCountLine[]
   events            ApprovalEvent[]
   ledger            LedgerEntry[]
 
   @@index([status, type])
   @@index([createdById])
+  @@index([createdAt])
 }
 
 model DistributionLine {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   requestId     String
-  request       Request   @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  request       Request       @relation(fields: [requestId], references: [id], onDelete: Restrict)
   stockItemId   String
-  stockItem     StockItem @relation(fields: [stockItemId], references: [id])
+  stockItem     StockItem     @relation(fields: [stockItemId], references: [id])
   quantity      Int
   distributedOn DateTime
   recipientId   String? // employee id
@@ -179,11 +189,31 @@ model DistributionLine {
   purpose       String? // Onboarding, Event - Design-a-thon, Mavericks Week, ...
   poc           String?
   remarks       String?
-  createdAt     DateTime  @default(now())
+  /// Set when this handover fulfils a points milestone reward.
+  rewardId      String?       @unique
+  reward        RewardEarned? @relation(fields: [rewardId], references: [id])
+  createdAt     DateTime      @default(now())
 
   @@index([stockItemId])
   @@index([requestId])
   @@index([recipientId])
+  @@index([distributedOn])
+}
+
+/// One counted item in a physical stock count (cycle count). The approved variance adjusts stock.
+model StockCountLine {
+  id          String    @id @default(cuid())
+  requestId   String
+  request     Request   @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  stockItemId String
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id])
+  systemQty   Int // available quantity when the count was recorded
+  countedQty  Int
+  reason      String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([requestId, stockItemId])
+  @@index([stockItemId])
 }
 
 model ReceiptLine {
@@ -232,6 +262,7 @@ model LedgerEntry {
   createdAt    DateTime   @default(now())
 
   @@index([stockItemId, createdAt])
+  @@index([createdAt])
 }
 
 /// Data change log for every write in the system.
@@ -253,16 +284,16 @@ model AuditLog {
 }
 
 model UploadBatch {
-  id         String   @id @default(cuid())
-  kind       String // STOCK_MASTER | DISTRIBUTION | RECEIPT
-  fileName   String
-  totalRows  Int
-  validRows  Int
-  errorRows  Int
-  errors     Json? // [{row, field, message}]
-  createdBy  String
-  user       User     @relation(fields: [createdBy], references: [id])
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  kind      String // STOCK_MASTER | DISTRIBUTION | RECEIPT
+  fileName  String
+  totalRows Int
+  validRows Int
+  errorRows Int
+  errors    Json? // [{row, field, message}]
+  createdBy String
+  user      User     @relation(fields: [createdBy], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model Setting {
@@ -275,4 +306,163 @@ model Setting {
 model Counter {
   key   String @id
   value Int    @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Engagement rewards: employees earn points for attending events; every
+// `step` points (default 2,000) up to `cap` (default 20,000) unlocks a goodie.
+// ---------------------------------------------------------------------------
+
+model Employee {
+  id             String   @id @default(cuid())
+  empId          String   @unique
+  name           String
+  email          String?  @unique
+  department     String?
+  designation    String?
+  location       String?
+  active         Boolean  @default(true)
+  /// Current points in this cycle (0..cap). Kept in step with PointsTransaction inside transactions.
+  points         Int      @default(0)
+  /// All points ever credited, across resets.
+  lifetimePoints Int      @default(0)
+  /// Increases on each reset, so milestones can be earned again in a new cycle.
+  cycle          Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User?
+  attendance   Attendance[]
+  transactions PointsTransaction[]
+  rewards      RewardEarned[]
+
+  @@index([points])
+  @@index([name])
+}
+
+enum EventCategory {
+  TECH
+  NON_TECH
+  WORKSHOP
+  HACKATHON
+  CODEATHON
+  OTHER
+}
+
+/// Admin-maintained point values. Changing points affects future attendance only.
+model EventType {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  category    EventCategory
+  points      Int
+  description String?
+  active      Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  events      Event[]
+}
+
+enum EventStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
+model Event {
+  id          String       @id @default(cuid())
+  code        String       @unique // EV-2026-0012
+  name        String
+  eventTypeId String
+  eventType   EventType    @relation(fields: [eventTypeId], references: [id])
+  /// Optional per-event override of the type's points (e.g. a flagship hackathon).
+  points      Int?
+  date        DateTime
+  location    String?
+  organizer   String?
+  description String?
+  status      EventStatus  @default(PLANNED)
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  attendance  Attendance[]
+
+  @@index([date])
+}
+
+model Attendance {
+  id            String   @id @default(cuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  pointsAwarded Int
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@unique([eventId, employeeId])
+  @@index([employeeId])
+}
+
+enum PointsType {
+  EVENT
+  ADJUSTMENT
+  RESET
+  REVERSAL
+}
+
+/// Points ledger — rows are only ever inserted.
+model PointsTransaction {
+  id           String     @id @default(cuid())
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id])
+  type         PointsType
+  points       Int // signed change actually applied (after the cap)
+  requested    Int // what was asked for (differs from `points` when the cap applied)
+  balanceAfter Int
+  cycle        Int
+  eventId      String?
+  reason       String?
+  actorId      String
+  createdAt    DateTime   @default(now())
+
+  @@index([employeeId, createdAt])
+}
+
+/// What each milestone (2,000, 4,000 … 20,000) gives. The goodie can be decided later.
+model RewardMilestone {
+  id          String     @id @default(cuid())
+  threshold   Int        @unique
+  title       String
+  description String?
+  stockItemId String?
+  stockItem   StockItem? @relation(fields: [stockItemId], references: [id])
+  quantity    Int        @default(1)
+  active      Boolean    @default(true)
+  updatedAt   DateTime   @updatedAt
+}
+
+enum RewardStatus {
+  DUE // milestone reached, goodie not yet handed over
+  IN_PROGRESS // on a distribution request waiting for approval
+  ISSUED // distribution approved, stock deducted
+  CANCELLED
+}
+
+model RewardEarned {
+  id         String            @id @default(cuid())
+  employeeId String
+  employee   Employee          @relation(fields: [employeeId], references: [id])
+  threshold  Int
+  cycle      Int
+  title      String // copy of the milestone title when earned
+  status     RewardStatus      @default(DUE)
+  earnedAt   DateTime          @default(now())
+  issuedAt   DateTime?
+  requestId  String? // distribution request carrying it
+  note       String?
+  line       DistributionLine?
+
+  @@unique([employeeId, threshold, cycle])
+  @@index([status])
 }

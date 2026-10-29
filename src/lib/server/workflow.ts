@@ -12,6 +12,7 @@ const PREFIX: Record<RequestType, string> = {
   STOCK_MASTER: "STK",
   RECEIPT: "RCV",
   DISTRIBUTION: "DST",
+  STOCK_COUNT: "CNT",
 }
 
 /** Atomic, gap-tolerant request number: MI-DST-2026-000123 */
@@ -48,6 +49,10 @@ export async function recomputeTotals(tx: Tx, requestId: string) {
     const agg = await tx.receiptLine.aggregate({ where: { requestId }, _sum: { quantity: true }, _count: true })
     totalQty = agg._sum.quantity ?? 0
     lineCount = agg._count
+  } else if (req.type === "STOCK_COUNT") {
+    const lines = await tx.stockCountLine.findMany({ where: { requestId }, select: { systemQty: true, countedQty: true } })
+    totalQty = lines.reduce((s, l) => s + Math.abs(l.countedQty - l.systemQty), 0) // total variance
+    lineCount = lines.length
   } else {
     const agg = await tx.stockItem.aggregate({
       where: { requestId, status: { not: "INACTIVE" } },
@@ -89,6 +94,23 @@ export async function availabilityShortfalls(tx: Tx, requestId: string) {
       issues.push(`${it.code} ${it.name}: needs ${d.qty}, only ${it.availableQty} available`)
   }
   return issues
+}
+
+/**
+ * Shortfalls for many distribution requests in two queries (instead of two per request),
+ * so the approval queue stays fast when the database is far away.
+ */
+export async function shortfallsForRequests(requestIds: string[]) {
+  const out = new Map<string, number>()
+  if (!requestIds.length) return out
+  const demand = await prisma.distributionLine.groupBy({ by: ["requestId", "stockItemId"], where: { requestId: { in: requestIds } }, _sum: { quantity: true } })
+  const items = await prisma.stockItem.findMany({ where: { id: { in: [...new Set(demand.map((d) => d.stockItemId))] } }, select: { id: true, availableQty: true, status: true } })
+  const byId = new Map(items.map((i) => [i.id, i]))
+  for (const d of demand) {
+    const it = byId.get(d.stockItemId)
+    if (!it || it.status !== "ACTIVE" || (d._sum.quantity ?? 0) > it.availableQty) out.set(d.requestId, (out.get(d.requestId) ?? 0) + 1)
+  }
+  return out
 }
 
 function assertEditable(req: { status: string; createdById: string }, user: SessionUser) {
@@ -168,6 +190,11 @@ export async function approveRequest(id: string, user: SessionUser, remarks?: st
 
       await postToStock(tx, req.id, req.type, user, settings.preventNegativeStock)
       await tx.request.update({ where: { id }, data: { currentLevel: level, status: "APPROVED", decidedAt: new Date() } })
+      if (req.type === "DISTRIBUTION") {
+        // Points rewards carried by this distribution are now handed over.
+        const issued = await tx.rewardEarned.updateMany({ where: { line: { is: { requestId: id } } }, data: { status: "ISSUED", issuedAt: new Date() } })
+        if (issued.count) await audit(tx, { actorId: user.id, action: "REWARD.ISSUED", entity: "Request", entityId: id, summary: `${issued.count} points reward(s) issued with ${req.number}` })
+      }
       await audit(tx, { actorId: user.id, action: "REQUEST.APPROVE", entity: "Request", entityId: id, summary: `Final approval of ${req.number}; stock updated` })
       return { final: true, level }
     },
@@ -202,6 +229,7 @@ export async function cancelRequest(id: string, user: SessionUser) {
     if (req.type === "STOCK_MASTER") {
       await tx.stockItem.updateMany({ where: { requestId: id, status: "DRAFT" }, data: { status: "INACTIVE", deletedAt: new Date() } })
     }
+    if (req.type === "DISTRIBUTION") await releaseRewards(tx, { requestId: id })
     await tx.approvalEvent.create({ data: { requestId: id, action: "CANCELLED", level: 0, actorId: user.id } })
     await audit(tx, { actorId: user.id, action: "REQUEST.CANCEL", entity: "Request", entityId: id, summary: `Deleted draft ${req.number}` })
   })
@@ -241,6 +269,28 @@ async function postToStock(tx: Tx, requestId: string, type: RequestType, user: S
     return
   }
 
+  if (type === "STOCK_COUNT") {
+    const lines = await tx.stockCountLine.findMany({ where: { requestId }, include: { stockItem: { select: { code: true, name: true } } } })
+    for (const l of lines) {
+      const delta = l.countedQty - l.systemQty
+      if (delta === 0) continue
+      // Apply the variance found by the count (not an absolute value), so movements approved
+      // between counting and approval are not lost.
+      const rows = await tx.$queryRaw<{ availableQty: number }[]>`
+        UPDATE "StockItem" SET "availableQty" = "availableQty" + ${delta}, "adjustedQty" = "adjustedQty" + ${delta}, "updatedAt" = now()
+        WHERE id = ${l.stockItemId} AND (${!preventNegative} OR "availableQty" + ${delta} >= 0)
+        RETURNING "availableQty"`
+      if (!rows.length) throw new AppError(`Can't approve: the count for ${l.stockItem.code} ${l.stockItem.name} would take stock below zero.`, 409)
+      await tx.ledgerEntry.create({
+        data: {
+          stockItemId: l.stockItemId, requestId, type: "ADJUSTMENT", qtyIn: Math.max(delta, 0), qtyOut: Math.max(-delta, 0), balanceAfter: rows[0].availableQty, actorId: user.id,
+          note: `Stock count: system ${l.systemQty}, counted ${l.countedQty}${l.reason ? ` (${l.reason})` : ""}`,
+        },
+      })
+    }
+    return
+  }
+
   const demand = await demandByItem(tx, requestId)
   for (const d of demand) {
     if (preventNegative) {
@@ -269,4 +319,19 @@ async function postToStock(tx: Tx, requestId: string, type: RequestType, user: S
 export function isOverdue(submittedAt: Date | null, hours: number) {
   if (!submittedAt) return false
   return Date.now() - new Date(submittedAt).getTime() > hours * 3600_000
+}
+
+/**
+ * Puts points rewards back to "due" when the distribution carrying them goes away
+ * (draft deleted, or lines removed), so they can be handed out later.
+ */
+export async function releaseRewards(tx: Tx, where: { requestId: string; lineIds?: string[] }) {
+  const lines = await tx.distributionLine.findMany({
+    where: { requestId: where.requestId, rewardId: { not: null }, ...(where.lineIds ? { id: { in: where.lineIds } } : {}) },
+    select: { id: true, rewardId: true },
+  })
+  if (!lines.length) return 0
+  await tx.distributionLine.updateMany({ where: { id: { in: lines.map((l) => l.id) } }, data: { rewardId: null } })
+  await tx.rewardEarned.updateMany({ where: { id: { in: lines.map((l) => l.rewardId!) }, status: "IN_PROGRESS" }, data: { status: "DUE", requestId: null } })
+  return lines.length
 }

@@ -13,6 +13,7 @@ import {
   nextRequestNumber,
   recomputeTotals,
   rejectRequest,
+  releaseRewards,
   submitRequest,
 } from "@/lib/server/workflow"
 
@@ -189,12 +190,17 @@ export async function removeLines(requestId: string, lineIds: string[]) {
       const req = await loadEditableRequest(tx, requestId, user)
       if (req.type === "DISTRIBUTION") {
         const before = await tx.distributionLine.findMany({ where: { requestId, id: { in: lineIds } } })
+        await releaseRewards(tx, { requestId, lineIds }) // rewards on removed lines become due again
         await tx.distributionLine.deleteMany({ where: { requestId, id: { in: lineIds } } })
         await audit(tx, { actorId: user.id, action: "DISTRIBUTION.LINE_REMOVE", entity: "Request", entityId: requestId, summary: `Removed ${before.length} line(s) from ${req.number}`, before })
       } else if (req.type === "RECEIPT") {
         const before = await tx.receiptLine.findMany({ where: { requestId, id: { in: lineIds } } })
         await tx.receiptLine.deleteMany({ where: { requestId, id: { in: lineIds } } })
         await audit(tx, { actorId: user.id, action: "RECEIPT.LINE_REMOVE", entity: "Request", entityId: requestId, summary: `Removed ${before.length} line(s) from ${req.number}`, before })
+      } else if (req.type === "STOCK_COUNT") {
+        const before = await tx.stockCountLine.findMany({ where: { requestId, id: { in: lineIds } } })
+        await tx.stockCountLine.deleteMany({ where: { requestId, id: { in: lineIds } } })
+        await audit(tx, { actorId: user.id, action: "STOCK_COUNT.LINE_REMOVE", entity: "Request", entityId: requestId, summary: `Removed ${before.length} counted item(s) from ${req.number}`, before })
       } else {
         const before = await tx.stockItem.findMany({ where: { requestId, id: { in: lineIds }, status: "DRAFT" } })
         await tx.stockItem.updateMany({ where: { requestId, id: { in: lineIds }, status: "DRAFT" }, data: { status: "INACTIVE", deletedAt: new Date() } })

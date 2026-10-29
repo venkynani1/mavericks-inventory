@@ -9,7 +9,7 @@ import { run } from "@/lib/server/action"
 import { audit } from "@/lib/server/audit"
 import { AppError, assertPermission } from "@/lib/server/session"
 
-const roleEnum = z.enum(["EXECUTIVE", "MANAGER", "AUTHORITY", "ADMIN"])
+const roleEnum = z.enum(["EXECUTIVE", "MANAGER", "AUTHORITY", "ADMIN", "EMPLOYEE"])
 const userSchema = z.object({
   empId: z.string().trim().min(2, "Enter the employee ID").max(20),
   name: z.string().trim().min(2, "Enter the name").max(100),

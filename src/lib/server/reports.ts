@@ -25,7 +25,7 @@ const range = (from?: string, to?: string) => {
   return Object.keys(r).length ? r : undefined
 }
 
-const TYPE_LABEL = { STOCK_MASTER: "New stock items", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution" } as const
+const TYPE_LABEL = { STOCK_MASTER: "New stock items", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution", STOCK_COUNT: "Stock count" } as const
 
 export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Promise<ReportResult> {
   const meta = REPORTS.find((r) => r.key === key)!
