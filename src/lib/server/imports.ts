@@ -191,7 +191,7 @@ export async function importStockMaster(buf: ArrayBuffer, fileName: string, user
       async (tx) => {
         const number = await nextRequestNumber(tx, "STOCK_MASTER")
         const req = await tx.request.create({
-          data: { number, type: "STOCK_MASTER", title: `Stock master upload — ${fileName}`, createdById: user.id },
+          data: { number, type: "STOCK_MASTER", title: `Stock master upload: ${fileName}`, createdById: user.id },
         })
         const catCache = new Map<string, string>()
         for (const it of valid) {
@@ -301,7 +301,7 @@ export async function importLines(kind: "distribution" | "receipt", buf: ArrayBu
       async (tx) => {
         const number = await nextRequestNumber(tx, type)
         const req = await tx.request.create({
-          data: { number, type, title: meta.title?.trim() || `${kind === "distribution" ? "Distribution" : "Stock inward"} upload — ${fileName}`, purpose: meta.purpose || null, createdById: user.id },
+          data: { number, type, title: meta.title?.trim() || `${kind === "distribution" ? "Distribution" : "Stock inward"} upload: ${fileName}`, purpose: meta.purpose || null, createdById: user.id },
         })
         for (let i = 0; i < lines.length; i += 5000) {
           const chunk = lines.slice(i, i + 5000)
@@ -376,7 +376,7 @@ const TEMPLATE: Record<ImportKind, { columns: { header: string; width: number; r
       { header: "Received Date", width: 16, required: true, note: "dd-mm-yyyy" },
       { header: "Remarks", width: 30, note: "Vendor, invoice or PO reference" },
     ],
-    example: [["MAV-00005", "", 50, "25-10-2026", "PO 4512 — Crocodile"]],
+    example: [["MAV-00005", "", 50, "25-10-2026", "PO 4512, Crocodile"]],
   },
 }
 

@@ -370,22 +370,23 @@ enum EventStatus {
 }
 
 model Event {
-  id          String       @id @default(cuid())
-  code        String       @unique // EV-2026-0012
-  name        String
-  eventTypeId String
-  eventType   EventType    @relation(fields: [eventTypeId], references: [id])
+  id           String              @id @default(cuid())
+  code         String              @unique // EV-2026-0012
+  name         String
+  eventTypeId  String
+  eventType    EventType           @relation(fields: [eventTypeId], references: [id])
   /// Optional per-event override of the type's points (e.g. a flagship hackathon).
-  points      Int?
-  date        DateTime
-  location    String?
-  organizer   String?
-  description String?
-  status      EventStatus  @default(PLANNED)
-  createdById String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  attendance  Attendance[]
+  points       Int?
+  date         DateTime
+  location     String?
+  organizer    String?
+  description  String?
+  status       EventStatus         @default(PLANNED)
+  createdById  String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  attendance   Attendance[]
+  transactions PointsTransaction[]
 
   @@index([date])
 }
@@ -422,6 +423,7 @@ model PointsTransaction {
   balanceAfter Int
   cycle        Int
   eventId      String?
+  event        Event?     @relation(fields: [eventId], references: [id])
   reason       String?
   actorId      String
   createdAt    DateTime   @default(now())

@@ -7,49 +7,68 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Brand } from "@/components/app/brand"
-import { LoginForm } from "./login-form"
+import { BoxesIcon, ShieldCheckIcon, TrophyIcon } from "lucide-react"
+import { MavHello } from "@/components/app/mav-hello"
+import { DemoLogins, LoginForm, type DemoAccount } from "./login-form"
 
 export const metadata: Metadata = { title: "Sign in" }
 
-const DEMO = [
-  { email: "executive@mavericks.demo", role: "Executive", does: "records distributions" },
-  { email: "manager@mavericks.demo", role: "Manager", does: "approves level 1" },
-  { email: "authority@mavericks.demo", role: "Management Authority", does: "approves level 2" },
-  { email: "admin@mavericks.demo", role: "Administrator", does: "users and rules" },
+const DEMO: DemoAccount[] = [
+  { email: "executive@mavericks.demo", name: "Kavin Raj", role: "Executive", does: "stock, distributions, events", icon: "exec" },
+  { email: "manager@mavericks.demo", name: "Rahul Iyer", role: "Manager", does: "approves requests", icon: "manager" },
+  { email: "authority@mavericks.demo", name: "Meera Krishnan", role: "Management Authority", does: "final approval", icon: "authority" },
+  { email: "admin@mavericks.demo", name: "Sanjana Rao", role: "Administrator", does: "users, rules, audit", icon: "admin" },
+  { email: "employee@mavericks.demo", name: "Priyanka Sharma", role: "Employee", does: "own points and goodies", icon: "employee" },
+]
+const DEMO_PASSWORD = () => process.env.DEMO_PASSWORD || "Mavericks@2026"
+
+/** Demo sign-in shows when DEMO_MODE=true, or when the demo accounts exist and DEMO_MODE isn't "false". */
+async function demoAccounts() {
+  if (process.env.DEMO_MODE === "false") return []
+  const found = await prisma.user.findMany({ where: { email: { in: DEMO.map((d) => d.email) }, active: true }, select: { email: true } }).catch(() => [])
+  const have = new Set(found.map((f) => f.email))
+  return DEMO.filter((d) => have.has(d.email))
+}
+
+const HIGHLIGHTS = [
+  { icon: BoxesIcon, title: "Inventory you can trust", text: "On hand, reserved and free to promise, with every movement on the ledger." },
+  { icon: ShieldCheckIcon, title: "Maker and checker", text: "Nothing leaves the shelf until a manager approves it." },
+  { icon: TrophyIcon, title: "Points that turn into goodies", text: "Attend events, earn points, get a goodie at every milestone." },
 ]
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; sso_error?: string; local?: string }> }) {
   if (await getUser()) redirect("/")
   const { next, sso_error, local } = await searchParams
-  const demo = process.env.DEMO_MODE === "true"
   const sso = ssoConfig()
-  // A brand-new database has no accounts; say so instead of letting every sign-in fail silently.
-  const noAccounts = (await prisma.user.count().catch(() => 1)) === 0
+  const [noAccounts, demo] = await Promise.all([prisma.user.count().then((n) => n === 0).catch(() => false), sso?.ssoOnly ? Promise.resolve([]) : demoAccounts()])
   // SSO-only: the password form is hidden except the administrator fallback (?local=1).
   const showPassword = !sso || !sso.ssoOnly || local === "1"
   const ssoHref = `/api/auth/sso/start?next=${encodeURIComponent(next ?? "/")}`
   return (
-    <main className="grid min-h-svh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-      <section className="relative hidden overflow-hidden bg-sidebar text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <Brand inverted />
-        <ShelfIllustration />
-        <div className="relative max-w-lg">
-          <h1 className="text-4xl leading-[1.1] font-semibold">Every T-shirt, kit and smart watch, accounted for.</h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-white/70">
-            Record handovers in bulk or one at a time. Nothing leaves the shelf until a manager approves it, and every movement stays on the ledger.
-          </p>
+    <main className="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <section className="relative hidden overflow-hidden bg-shell text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50rem_24rem_at_85%_0%,rgba(91,143,217,.35),transparent),radial-gradient(30rem_20rem_at_0%_100%,rgba(241,183,59,.18),transparent)]" />
+        <Brand inverted className="relative" />
+        <div className="relative flex flex-col gap-8">
+          <MavHello tone="dark" size="lg" message="Hi there! I'm Mav." sub="Welcome to Mavericks Inventory. Pick a demo role and I'll show you around." />
+          <ul className="grid max-w-xl gap-4">
+            {HIGHLIGHTS.map((h) => (
+              <li key={h.title} className="flex gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/10 text-[#9cbcf2] ring-1 ring-white/10"><h.icon className="size-4" /></span>
+                <span className="flex flex-col">
+                  <span className="text-[15px] font-semibold">{h.title}</span>
+                  <span className="text-sm text-white/65">{h.text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
+        <p className="relative text-xs text-white/45">Hexaware Technologies, Mavericks programme</p>
       </section>
 
-      <section className="flex flex-col justify-center px-6 py-12 sm:px-12">
-        <div className="mx-auto flex w-full max-w-sm flex-col gap-8">
+      <section className="flex flex-col justify-center px-5 py-10 sm:px-12">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-7">
           <Brand className="lg:hidden" />
-          <div className="flex flex-col gap-1.5">
-            <h2 className="text-2xl font-semibold">Sign in</h2>
-            <p className="text-sm text-muted-foreground">
-              {sso ? `Use your ${sso.providerName} work account.` : "Use the email your administrator set up for you."}
-            </p>
-          </div>
           {noAccounts && (
             <Alert aria-live="polite">
               <AlertDescription>
@@ -66,6 +85,30 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               <AlertDescription>{SSO_ERROR_TEXT[sso_error] ?? "Company sign-in didn't work. Try again."}</AlertDescription>
             </Alert>
           )}
+
+          {demo.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <h1 className="text-2xl font-semibold">Explore the demo</h1>
+                <p className="text-sm text-muted-foreground">Choose a role to sign in instantly. Each one sees a different part of the app.</p>
+              </div>
+              <DemoLogins next={next ?? "/"} demo={demo} password={DEMO_PASSWORD()} />
+            </div>
+          )}
+
+          {demo.length > 0 && showPassword && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <Separator className="flex-1" />
+              or sign in with your account
+              <Separator className="flex-1" />
+            </div>
+          )}
+          {demo.length === 0 && (
+            <div className="flex flex-col gap-1.5">
+              <h1 className="text-2xl font-semibold">Sign in</h1>
+              <p className="text-sm text-muted-foreground">{sso ? `Use your ${sso.providerName} work account.` : "Use the email your administrator set up for you."}</p>
+            </div>
+          )}
           {sso && (
             <Button asChild size="lg" variant={showPassword ? "outline" : "default"} className="h-10">
               <a href={ssoHref}>
@@ -74,56 +117,32 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               </a>
             </Button>
           )}
-          {sso && showPassword && (
+          {sso && showPassword && demo.length === 0 && (
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <Separator className="flex-1" />
               {sso.ssoOnly ? "Administrator sign-in" : "or with a password"}
               <Separator className="flex-1" />
             </div>
           )}
-          {showPassword && <LoginForm next={next ?? "/"} demo={demo && !sso?.ssoOnly ? DEMO : []} />}
+          {showPassword && (demo.length > 0 ? (
+            <details className="group rounded-xl border bg-card px-4 py-3 open:pb-5">
+              <summary className="cursor-pointer text-sm font-medium outline-none select-none">Sign in with email and password</summary>
+              <div className="mt-4"><LoginForm next={next ?? "/"} /></div>
+            </details>
+          ) : (
+            <LoginForm next={next ?? "/"} />
+          ))}
           {!showPassword && (
             <a href="/login?local=1" className="w-fit text-xs text-muted-foreground underline-offset-4 hover:underline">
               Administrator sign-in without {sso?.providerName}
             </a>
           )}
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Access is limited to authorised Hexaware staff. Every sign-in and change is recorded in the audit log.
+            {demo.length > 0 ? "This is a demonstration with sample data. " : ""}Access is limited to authorised Hexaware staff. Every sign-in and change is recorded in the audit log.
           </p>
         </div>
       </section>
     </main>
-  )
-}
-
-/** Shelving unit drawn in boxes: the three tiers echo stock in hand, in review and handed out. */
-function ShelfIllustration() {
-  const rows = [
-    [3, 2, 4, 1, 3],
-    [2, 4, 1, 3, 2, 2],
-    [4, 1, 3, 2, 3],
-  ]
-  return (
-    <div aria-hidden className="relative my-10 flex flex-col gap-5">
-      {rows.map((r, i) => (
-        <div key={i} className="flex flex-col gap-0">
-          <div className="flex items-end gap-2 px-3">
-            {r.map((h, j) => (
-              <div
-                key={j}
-                className="rounded-[3px] border border-white/15"
-                style={{
-                  width: 34 + ((i + j) % 3) * 14,
-                  height: 18 + h * 12,
-                  background: i === 1 && j === 2 ? "#e4ad4c" : i === 0 && j % 2 === 0 ? "#5b8fd9" : "rgba(255,255,255,0.08)",
-                }}
-              />
-            ))}
-          </div>
-          <div className="h-1.5 rounded-full bg-white/20" />
-        </div>
-      ))}
-    </div>
   )
 }
 

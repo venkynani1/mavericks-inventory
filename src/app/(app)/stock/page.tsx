@@ -12,8 +12,9 @@ import { SearchFilter, Segmented, SelectFilter } from "@/components/app/filters"
 import { StockGauge } from "@/components/app/stock-gauge"
 import { ItemStateBadge } from "@/components/app/status-badge"
 import { Pager } from "@/components/app/pager"
+import { fmtNum } from "@/lib/utils"
 
-export const metadata: Metadata = { title: "Stock" }
+export const metadata: Metadata = { title: "Items" }
 const PAGE = 50
 
 type SP = { q?: string; category?: string; state?: string; page?: string }
@@ -56,12 +57,30 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   ])
   const c = counts[0]
   const exec = user.role === "EXECUTIVE"
+  // Reserved = in distributions waiting for approval; cover = days the stock lasts at the last 90 days' pace.
+  const ids = items.map((i) => i.id)
+  const since90 = new Date(Date.now() - 90 * 86400_000)
+  const [reservedRows, usedRows] = ids.length
+    ? await Promise.all([
+        prisma.distributionLine.groupBy({ by: ["stockItemId"], where: { stockItemId: { in: ids }, request: { status: "SUBMITTED" } }, _sum: { quantity: true } }),
+        prisma.distributionLine.groupBy({ by: ["stockItemId"], where: { stockItemId: { in: ids }, request: { status: "APPROVED" }, distributedOn: { gte: since90 } }, _sum: { quantity: true } }),
+      ])
+    : [[], []]
+  const reserved = new Map(reservedRows.map((r) => [r.stockItemId, r._sum.quantity ?? 0]))
+  const used90 = new Map(usedRows.map((r) => [r.stockItemId, r._sum.quantity ?? 0]))
+  const cover = (id: string, available: number) => {
+    const per = (used90.get(id) ?? 0) / 90
+    if (available <= 0) return { label: "None", tone: "text-rejected" }
+    if (!per) return { label: "No recent use", tone: "text-muted-foreground" }
+    const d = Math.floor(available / per)
+    return { label: d > 365 ? "Over a year" : `${d} days`, tone: d < 14 ? "text-rejected" : d < 45 ? "text-pending" : "" }
+  }
 
   return (
     <>
       <PageHeader
-        title="Stock"
-        description="Every goodie, kit and device Mavericks hands out. Quantities change only when a request is approved."
+        title="Items"
+        description="Every goodie, kit and device Mavericks hands out. Free to promise is what's on the shelf minus what's reserved by requests in review; cover is how long stock lasts at the last 90 days' pace."
         actions={
           <>
             <Button variant="outline" asChild>
@@ -114,7 +133,10 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                 <TableHead className="pl-5">Item</TableHead>
                 <TableHead className="hidden md:table-cell">Category</TableHead>
                 <TableHead className="hidden lg:table-cell">Variant</TableHead>
-                <TableHead className="w-24 sm:w-64">On the shelf</TableHead>
+                <TableHead className="w-24 sm:w-56">On the shelf</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Reserved</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Free to promise</TableHead>
+                <TableHead className="hidden lg:table-cell">Cover</TableHead>
                 <TableHead className="hidden pr-5 sm:table-cell">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -136,6 +158,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                       <StockGauge available={i.availableQty} total={i.openingQty + i.receivedQty} reorder={i.reorderLevel} className="max-sm:min-w-0 max-sm:[&>div:first-child]:hidden" />
                     )}
                   </TableCell>
+                  <TableCell className="num hidden text-right xl:table-cell">{reserved.get(i.id) ? fmtNum(reserved.get(i.id)!) : <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="num hidden text-right font-medium xl:table-cell">{i.status === "DRAFT" ? "—" : fmtNum(Math.max(0, i.availableQty - (reserved.get(i.id) ?? 0)))}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{i.status === "DRAFT" ? "—" : (() => { const cv = cover(i.id, i.availableQty); return <span className={`num text-sm ${cv.tone}`}>{cv.label}</span> })()}</TableCell>
                   <TableCell className="hidden pr-5 sm:table-cell">
                     <ItemStateBadge available={i.availableQty} reorder={i.reorderLevel} status={i.status} />
                   </TableCell>

@@ -1,7 +1,10 @@
 import "server-only"
+import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 
-export async function getLookups() {
+export const LOOKUPS_TAG = "lookups"
+
+async function load() {
   const [categories, lookups] = await Promise.all([
     prisma.category.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.lookup.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { value: "asc" }] }),
@@ -12,5 +15,16 @@ export async function getLookups() {
     units: of("UNIT").length ? of("UNIT") : ["Nos"],
     locations: of("LOCATION"),
     purposes: of("PURPOSE"),
+  }
+}
+
+// Master data changes rarely, so forms read it from a cache that's refreshed whenever an admin edits it.
+const cached = unstable_cache(load, ["lookups"], { tags: [LOOKUPS_TAG], revalidate: 600 })
+
+export async function getLookups() {
+  try {
+    return await cached()
+  } catch {
+    return load()
   }
 }

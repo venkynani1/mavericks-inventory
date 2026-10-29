@@ -28,6 +28,12 @@
   --color-draft: var(--draft);
   --color-draft-soft: var(--draft-soft);
   --color-shelf: var(--shelf);
+  --color-shell: var(--shell);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-field: var(--shell-field);
+  --color-reward: var(--reward);
+  --color-reward-soft: var(--reward-soft);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
@@ -83,14 +89,22 @@
   --chart-4: #c98a1c;
   --chart-5: #8a5cc2;
   --radius: 0.625rem;
-  --sidebar: #0f1e3d;
-  --sidebar-foreground: #c3cee3;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0f1e3d;
-  --sidebar-accent: #1a2d55;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1d3160;
-  --sidebar-ring: #5b8fd9;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #364156;
+  --sidebar-primary: #2350a8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e9effa;
+  --sidebar-accent-foreground: #173a7d;
+  --sidebar-border: #dbe1ea;
+  --sidebar-ring: #2350a8;
+  /* Global shell bar (top), like the dark masthead of large enterprise consoles */
+  --shell: #0b1730;
+  --shell-foreground: #e6ecf7;
+  --shell-muted: #8fa0bf;
+  --shell-field: #16264a;
+  --header-height: 3.25rem;
+  --reward: #b7791f;
+  --reward-soft: #fdf3e1;
   --pending: #a86b12;
   --pending-soft: #fbf1df;
   --approved: #157a5a;
@@ -126,14 +140,20 @@
   --chart-3: #4cc29a;
   --chart-4: #e4ad4c;
   --chart-5: #b391e6;
-  --sidebar: #091222;
-  --sidebar-foreground: #aebad0;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #091222;
-  --sidebar-accent: #15233f;
+  --sidebar: #101b30;
+  --sidebar-foreground: #b4c0d5;
+  --sidebar-primary: #6f9bea;
+  --sidebar-primary-foreground: #0d1626;
+  --sidebar-accent: #1b2a48;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #182746;
+  --sidebar-border: #213152;
   --sidebar-ring: #6f9bea;
+  --shell: #060d1a;
+  --shell-foreground: #e6ecf7;
+  --shell-muted: #8191ad;
+  --shell-field: #121f3a;
+  --reward: #e8b04f;
+  --reward-soft: #392b12;
   --pending: #e4ad4c;
   --pending-soft: #3a2d14;
   --approved: #4cc29a;
@@ -192,4 +212,15 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Thin route-change progress bar at the very top of the window */
+@keyframes nav-progress {
+  0% { transform: scaleX(0.05); }
+  40% { transform: scaleX(0.55); }
+  100% { transform: scaleX(0.92); }
+}
+.nav-progress {
+  transform-origin: left;
+  animation: nav-progress 2.4s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
 }

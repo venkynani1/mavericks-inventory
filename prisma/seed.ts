@@ -103,7 +103,7 @@ async function main() {
   const totalOpening = rows.reduce((s, r) => s + r.opening, 0)
   const master = await prisma.request.create({
     data: {
-      number: reqNo("STK"), type: "STOCK_MASTER", status: "APPROVED", title: "Opening stock — Sep 25 stock count",
+      number: reqNo("STK"), type: "STOCK_MASTER", status: "APPROVED", title: "Opening stock: Sep 25 stock count",
       purpose: "Migration from the Sep 25 Excel tracker", createdById: exec.id, submittedAt: at(130), decidedAt: at(129),
       currentLevel: 2, requiredLevel: 2, totalQty: totalOpening, lineCount: rows.length, createdAt: at(131),
     },
@@ -168,7 +168,7 @@ async function main() {
     const req = await prisma.request.create({
       data: {
         number: reqNo("DST"), type: "DISTRIBUTION", status: "APPROVED",
-        title: `${b.purpose} — goodies handover`, purpose: b.purpose, createdById: maker.id,
+        title: `${b.purpose}: goodies handover`, purpose: b.purpose, createdById: maker.id,
         submittedAt: at(b.daysAgo + 1), decidedAt: at(b.daysAgo, 16), currentLevel: level, requiredLevel: level,
         totalQty, lineCount: totalQty, createdAt: at(b.daysAgo + 1, 9),
       },
@@ -234,7 +234,7 @@ async function main() {
   const tshirtM = find(/^Mavericks T-Shirt - M - Ash/)
   const rcv = await prisma.request.create({
     data: {
-      number: reqNo("RCV"), type: "RECEIPT", status: "SUBMITTED", title: "Crocodile T-shirt replenishment", purpose: "PO 4471 — Crocodile",
+      number: reqNo("RCV"), type: "RECEIPT", status: "SUBMITTED", title: "Crocodile T-shirt replenishment", purpose: "PO 4471, Crocodile",
       createdById: exec2.id, submittedAt: at(3), currentLevel: 1, requiredLevel: 2, totalQty: 160, lineCount: 2, createdAt: at(3, 9),
     },
   })
@@ -269,10 +269,10 @@ async function main() {
     })
     return r
   }
-  const pend = await mkDist({ status: "SUBMITTED", title: "Intern welcome — batch 14", purpose: "Internship", maker: exec, daysAgo: 4, picks: [[/Welcome Kit - M/, 6], [/Welcome Kit - L/, 4], [/Bottle - 600 ml - Black/, 10]] })
+  const pend = await mkDist({ status: "SUBMITTED", title: "Intern welcome, batch 14", purpose: "Internship", maker: exec, daysAgo: 4, picks: [[/Welcome Kit - M/, 6], [/Welcome Kit - L/, 4], [/Bottle - 600 ml - Black/, 10]] })
   await prisma.approvalEvent.create({ data: { requestId: pend.id, action: "SUBMITTED", actorId: exec.id, createdAt: at(4) } })
 
-  const rej = await mkDist({ status: "REJECTED", title: "Hackathon winners — smart watches", purpose: "Event - Participation", maker: exec2, daysAgo: 6, picks: [[/Smart Watch/, 12]] })
+  const rej = await mkDist({ status: "REJECTED", title: "Hackathon winners: smart watches", purpose: "Event - Participation", maker: exec2, daysAgo: 6, picks: [[/Smart Watch/, 12]] })
   await prisma.approvalEvent.createMany({
     data: [
       { requestId: rej.id, action: "SUBMITTED", actorId: exec2.id, createdAt: at(6) },
@@ -280,7 +280,7 @@ async function main() {
     ],
   })
 
-  await mkDist({ status: "DRAFT", title: "Mavericks Week — day 2 goodies", purpose: "Mavericks Week", maker: exec, daysAgo: 0, picks: [[/Bluetooth Speaker/, 5], [/Coffee Mug/, 8]] })
+  await mkDist({ status: "DRAFT", title: "Mavericks Week, day 2 goodies", purpose: "Mavericks Week", maker: exec, daysAgo: 0, picks: [[/Bluetooth Speaker/, 5], [/Coffee Mug/, 8]] })
 
   // ---- engagement rewards: employees, events, attendance and points -------------------------
   // Everyone who has received goodies becomes an employee record (names and IDs are generated).

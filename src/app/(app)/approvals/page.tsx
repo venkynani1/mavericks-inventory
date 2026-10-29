@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 import { rolesForLevel } from "@/lib/roles"
 import { requirePermission } from "@/lib/server/session"
 import { getSettings } from "@/lib/server/settings"
-import { availabilityShortfalls, isOverdue } from "@/lib/server/workflow"
+import { isOverdue, shortfallsForRequests } from "@/lib/server/workflow"
 import { fmtDateTime } from "@/lib/utils"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -27,13 +27,14 @@ export default async function Approvals() {
     prisma.approvalEvent.findMany({ where: { actorId: user.id, action: { in: ["APPROVED", "REJECTED"] } }, include: { request: true }, orderBy: { createdAt: "desc" }, take: 15 }),
   ])
   const actionable = pending.filter((r) => rolesForLevel(r.currentLevel + 1).includes(user.role))
+  // One batched query for every request's stock shortfalls (it used to be one transaction per request).
+  const shortMap = settings.preventNegativeStock ? await shortfallsForRequests(actionable.filter((r) => r.type === "DISTRIBUTION").map((r) => r.id)) : new Map<string, number>()
   const rows: QueueRow[] = []
   for (const r of actionable) {
-    const short = r.type === "DISTRIBUTION" && settings.preventNegativeStock ? await prisma.$transaction((tx) => availabilityShortfalls(tx, r.id)) : []
     rows.push({
       id: r.id, number: r.number, title: r.title, type: typeLabel(r.type), maker: r.createdBy.name, submitted: fmtDateTime(r.submittedAt),
       ageHours: r.submittedAt ? Math.floor((Date.now() - r.submittedAt.getTime()) / 3600_000) : 0, overdue: isOverdue(r.submittedAt, settings.escalationHours),
-      level: r.currentLevel + 1, required: r.requiredLevel, units: r.totalQty, lines: r.lineCount, shortfalls: short.length,
+      level: r.currentLevel + 1, required: r.requiredLevel, units: r.totalQty, lines: r.lineCount, shortfalls: shortMap.get(r.id) ?? 0,
       approvedEarlierByMe: r.events.some((e) => e.actorId === user.id && r.submittedAt && e.createdAt >= r.submittedAt),
     })
   }

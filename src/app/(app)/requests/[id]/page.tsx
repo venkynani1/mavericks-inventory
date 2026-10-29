@@ -175,6 +175,38 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         </Table>
       </>
     )
+  } else if (req.type === "STOCK_COUNT") {
+    const lines = await prisma.stockCountLine.findMany({ where: { requestId: id }, include: { stockItem: true }, orderBy: { createdAt: "asc" }, skip, take: LINES_PER_PAGE })
+    table = (
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="pl-5">Item</TableHead>
+            <TableHead className="text-right">System when counted</TableHead>
+            <TableHead className="text-right">Counted</TableHead>
+            <TableHead className="text-right">Difference</TableHead>
+            <TableHead className="hidden pr-5 md:table-cell">Reason</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {lines.map((l) => {
+            const d = l.countedQty - l.systemQty
+            return (
+              <TableRow key={l.id}>
+                <TableCell className="pl-5">
+                  <Link href={`/stock/${l.stockItemId}`} className="block hover:text-primary">{l.stockItem.name}</Link>
+                  <span className="num text-xs text-muted-foreground">{l.stockItem.code}, now {fmtNum(l.stockItem.availableQty)} on hand</span>
+                </TableCell>
+                <TableCell className="num text-right">{fmtNum(l.systemQty)}</TableCell>
+                <TableCell className="num text-right">{fmtNum(l.countedQty)}</TableCell>
+                <TableCell className={`num text-right font-semibold ${d < 0 ? "text-rejected" : "text-approved"}`}>{d > 0 ? "+" : ""}{fmtNum(d)}</TableCell>
+                <TableCell className="hidden pr-5 text-muted-foreground md:table-cell">{l.reason ?? "—"}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    )
   } else {
     const masterItems = await prisma.stockItem.findMany({ where: { requestId: id, status: { not: "INACTIVE" } }, include: { category: true }, orderBy: { code: "asc" }, skip, take: LINES_PER_PAGE })
     table = (

@@ -267,3 +267,41 @@ export async function deleteDraft(id: string) {
     refresh(id)
   }, "Draft deleted")
 }
+
+// ---------- stock count (cycle count) ----------
+
+const countLine = z.object({
+  stockItemId: z.string().min(1),
+  countedQty: z.coerce.number().int("Counts are whole numbers").min(0, "A count can't be negative").max(10_000_000),
+  reason: z.string().trim().max(200).optional(),
+})
+
+/**
+ * Records a physical count. Only items whose count differs from the system figure are kept as lines.
+ * Approval applies the difference to available stock as an ADJUSTMENT on the ledger.
+ */
+export async function createStockCount(input: { title: string; remarks?: string; lines: z.input<typeof countLine>[]; submit?: boolean }) {
+  return run(async () => {
+    const user = await assertPermission("request:create")
+    const m = check(meta, { title: input.title, remarks: input.remarks })
+    const lines = (input.lines ?? []).map((l, i) => check(countLine, l, `Line ${i + 1}: `))
+    if (!lines.length) throw new AppError("Enter a count for at least one item.")
+    const items = await prisma.stockItem.findMany({ where: { id: { in: lines.map((l) => l.stockItemId) }, status: "ACTIVE" }, select: { id: true, availableQty: true, name: true } })
+    const byId = new Map(items.map((i) => [i.id, i]))
+    const diffs = lines.filter((l) => byId.has(l.stockItemId) && byId.get(l.stockItemId)!.availableQty !== l.countedQty)
+    if (!diffs.length) throw new AppError("Every count matches the system. Nothing to adjust.")
+    const missingReason = diffs.find((l) => !l.reason)
+    if (missingReason) throw new AppError(`Give a reason for the difference on ${byId.get(missingReason.stockItemId)!.name} (for example damaged, miscount, found).`)
+    const req = await prisma.$transaction(async (tx) => {
+      const r = await tx.request.create({ data: { number: await nextRequestNumber(tx, "STOCK_COUNT"), type: "STOCK_COUNT", title: m.title, remarks: opt(m.remarks), purpose: "Stock count", createdById: user.id } })
+      await tx.stockCountLine.createMany({ data: diffs.map((l) => ({ requestId: r.id, stockItemId: l.stockItemId, systemQty: byId.get(l.stockItemId)!.availableQty, countedQty: l.countedQty, reason: opt(l.reason) })) })
+      await recomputeTotals(tx, r.id)
+      await audit(tx, { actorId: user.id, action: "STOCK_COUNT.CREATE", entity: "Request", entityId: r.id, summary: `Recorded count ${r.number}: ${diffs.length} item(s) differ` })
+      return r
+    })
+    if (input.submit) await submitRequest(req.id, user)
+    refresh(req.id)
+    revalidatePath("/counts")
+    return { id: req.id, number: req.number, differences: diffs.length }
+  }, input.submit ? "Count submitted for approval" : "Count saved as a draft")
+}

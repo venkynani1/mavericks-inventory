@@ -18,7 +18,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
   await requirePermission("report:view")
   const sp = await searchParams
   const key = (REPORTS.some((x) => x.key === sp.r) ? sp.r : "availability") as ReportKey
-  const filters: Filters = { q: sp.q, from: sp.from, to: sp.to, category: sp.category, item: sp.item, purpose: sp.purpose, location: sp.location, stock: sp.stock }
+  const filters: Filters = { q: sp.q, from: sp.from, to: sp.to, category: sp.category, item: sp.item, purpose: sp.purpose, location: sp.location, stock: sp.stock, event: sp.event, status: sp.status, dept: sp.dept }
   const [report, lookups, items] = await Promise.all([
     runReport(key, filters, SHOW),
     getLookups(),
@@ -91,6 +91,22 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             <DateFilter param="from" label="From" />
             <DateFilter param="to" label="To" />
             <SearchFilter placeholder="Request number or title…" />
+          </>
+        )}
+        {key === "points" && <SearchFilter placeholder="Employee name or ID…" />}
+        {key === "attendance" && (
+          <>
+            <DateFilter param="from" label="From" />
+            <DateFilter param="to" label="To" />
+            <SearchFilter placeholder="Employee name or ID…" />
+          </>
+        )}
+        {key === "rewards" && (
+          <>
+            <SelectFilter param="status" label="Status" allLabel="Any status" options={[{ value: "DUE", label: "Due" }, { value: "IN_PROGRESS", label: "In approval" }, { value: "ISSUED", label: "Issued" }, { value: "CANCELLED", label: "Cancelled" }]} />
+            <DateFilter param="from" label="Earned from" />
+            <DateFilter param="to" label="To" />
+            <SearchFilter placeholder="Employee name or ID…" />
           </>
         )}
         {key === "ledger" && (

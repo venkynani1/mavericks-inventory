@@ -10,6 +10,7 @@ import { run } from "@/lib/server/action"
 import { AppError } from "@/lib/server/session"
 import { ensureBaseData } from "../../../prisma/base-data"
 import { endSessionUrl, ssoConfig } from "@/lib/server/sso"
+import { isSharedDemo } from "@/lib/demo"
 
 /**
  * First-run sign-in. While the database has no user accounts, signing in with
@@ -58,7 +59,9 @@ export async function login(_: LoginState, form: FormData): Promise<LoginState> 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
   await audit(prisma, { actorId: user.id, action: "USER.LOGIN", entity: "User", entityId: user.id, summary: `${user.name} signed in` })
   await createSession({ id: user.id, role: user.role })
-  redirect(user.mustChangePw ? "/profile?first=1" : next.startsWith("/") && !next.startsWith("//") ? next : "/")
+  const home = user.role === "EMPLOYEE" ? "/me" : "/"
+  const safeNext = next.startsWith("/") && !next.startsWith("//") && next !== "/" ? next : home
+  redirect(user.mustChangePw ? "/profile?first=1" : safeNext)
 }
 
 export async function logout() {
@@ -82,6 +85,8 @@ export async function changePassword(input: { current: string; next: string; con
   return run(async () => {
     const me = await getUser()
     if (!me) throw new AppError("Sign in again.")
+    // Shared demo accounts keep their published password, so the open demo link keeps working for everyone.
+    if (isSharedDemo(me.email)) throw new AppError("Demo accounts are shared, so their password can't be changed.")
     const parsed = pwSchema.safeParse(input)
     if (!parsed.success) throw new AppError(parsed.error.issues[0].message)
     const u = await prisma.user.findUniqueOrThrow({ where: { id: me.id } })

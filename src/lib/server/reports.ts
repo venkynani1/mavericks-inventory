@@ -5,8 +5,8 @@ import { fmtDate, fmtDateTime } from "@/lib/utils"
 import { getSettings } from "./settings"
 import { isOverdue } from "./workflow"
 
-export type ReportKey = "availability" | "distributed" | "pending" | "approvals" | "ledger"
-export type Filters = { q?: string; from?: string; to?: string; category?: string; item?: string; purpose?: string; location?: string; stock?: string }
+export type ReportKey = "availability" | "distributed" | "pending" | "approvals" | "ledger" | "points" | "attendance" | "rewards"
+export type Filters = { q?: string; from?: string; to?: string; category?: string; item?: string; purpose?: string; location?: string; stock?: string; event?: string; status?: string; dept?: string }
 export type ReportColumn = { key: string; header: string; width?: number; align?: "right"; numeric?: boolean }
 export type ReportResult = { title: string; columns: ReportColumn[]; rows: Record<string, string | number | null>[]; total: number; summary?: { label: string; value: string }[] }
 
@@ -16,6 +16,9 @@ export const REPORTS: { key: ReportKey; title: string; description: string }[] =
   { key: "pending", title: "Pending approval", description: "Requests waiting for a decision, with their age and level." },
   { key: "approvals", title: "Approval history", description: "Every submission, approval and rejection, with remarks." },
   { key: "ledger", title: "Stock movement ledger", description: "Each stock movement in date order, with the running balance." },
+  { key: "points", title: "Employee points", description: "Every employee's current and lifetime points, events attended and rewards." },
+  { key: "attendance", title: "Event attendance", description: "Who attended which event and the points they received." },
+  { key: "rewards", title: "Points rewards", description: "Milestone rewards earned, with their status and the goodie handed over." },
 ]
 
 const range = (from?: string, to?: string) => {
@@ -177,6 +180,100 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
           { key: "by", header: "Approved by", width: 18 },
         ],
         rows: rows.map((l) => ({ at: fmtDateTime(l.createdAt), code: l.stockItem.code, item: l.stockItem.name, type: T[l.type], number: l.request?.number ?? "", in: l.qtyIn || null, out: l.qtyOut || null, balance: l.balanceAfter, by: l.actor.name })),
+        total,
+      }
+    }
+    case "points": {
+      const where: Prisma.EmployeeWhereInput = {}
+      if (f.dept) where.department = f.dept
+      if (f.q) where.OR = [{ name: { contains: f.q, mode: "insensitive" } }, { empId: { contains: f.q } }]
+      const [rows, total] = await Promise.all([
+        prisma.employee.findMany({ where, orderBy: [{ points: "desc" }, { name: "asc" }], take: limit, include: { _count: { select: { attendance: true } }, rewards: { select: { status: true } } } }),
+        prisma.employee.count({ where }),
+      ])
+      return {
+        title: meta.title,
+        columns: [
+          { key: "empId", header: "Emp ID", width: 13 },
+          { key: "name", header: "Name", width: 26 },
+          { key: "dept", header: "Department", width: 24 },
+          { key: "location", header: "Location", width: 12 },
+          { key: "points", header: "Points", numeric: true, align: "right" },
+          { key: "lifetime", header: "Lifetime", numeric: true, align: "right" },
+          { key: "cycle", header: "Cycle", numeric: true, align: "right" },
+          { key: "events", header: "Events", numeric: true, align: "right" },
+          { key: "issued", header: "Rewards issued", numeric: true, align: "right" },
+          { key: "due", header: "Rewards due", numeric: true, align: "right" },
+          { key: "active", header: "Active", width: 8 },
+        ],
+        rows: rows.map((e) => ({
+          empId: e.empId, name: e.name, dept: e.department, location: e.location, points: e.points, lifetime: e.lifetimePoints, cycle: e.cycle, events: e._count.attendance,
+          issued: e.rewards.filter((r) => r.status === "ISSUED").length, due: e.rewards.filter((r) => r.status === "DUE" || r.status === "IN_PROGRESS").length, active: e.active ? "Yes" : "No",
+        })),
+        total,
+        summary: [
+          { label: "Employees", value: String(total) },
+          { label: "Points held", value: String(rows.reduce((s, e) => s + e.points, 0)) },
+        ],
+      }
+    }
+    case "attendance": {
+      const where: Prisma.AttendanceWhereInput = {}
+      if (f.event) where.eventId = f.event
+      const dr = range(f.from, f.to)
+      if (dr) where.event = { date: dr }
+      if (f.q) where.employee = { OR: [{ name: { contains: f.q, mode: "insensitive" } }, { empId: { contains: f.q } }] }
+      const [rows, total, agg] = await Promise.all([
+        prisma.attendance.findMany({ where, include: { event: { include: { eventType: true } }, employee: true }, orderBy: [{ event: { date: "desc" } }, { employee: { name: "asc" } }], take: limit }),
+        prisma.attendance.count({ where }),
+        prisma.attendance.aggregate({ where, _sum: { pointsAwarded: true } }),
+      ])
+      return {
+        title: meta.title,
+        columns: [
+          { key: "date", header: "Date", width: 13 },
+          { key: "code", header: "Event code", width: 14 },
+          { key: "event", header: "Event", width: 36 },
+          { key: "type", header: "Type", width: 18 },
+          { key: "empId", header: "Emp ID", width: 13 },
+          { key: "name", header: "Name", width: 24 },
+          { key: "dept", header: "Department", width: 22 },
+          { key: "points", header: "Points", numeric: true, align: "right" },
+        ],
+        rows: rows.map((a) => ({ date: fmtDate(a.event.date), code: a.event.code, event: a.event.name, type: a.event.eventType.name, empId: a.employee.empId, name: a.employee.name, dept: a.employee.department, points: a.pointsAwarded })),
+        total,
+        summary: [
+          { label: "Attendances", value: String(total) },
+          { label: "Points given", value: String(agg._sum.pointsAwarded ?? 0) },
+        ],
+      }
+    }
+    case "rewards": {
+      const where: Prisma.RewardEarnedWhereInput = {}
+      if (f.status && ["DUE", "IN_PROGRESS", "ISSUED", "CANCELLED"].includes(f.status)) where.status = f.status as "DUE"
+      const dr = range(f.from, f.to)
+      if (dr) where.earnedAt = dr
+      if (f.q) where.employee = { OR: [{ name: { contains: f.q, mode: "insensitive" } }, { empId: { contains: f.q } }] }
+      const [rows, total] = await Promise.all([
+        prisma.rewardEarned.findMany({ where, include: { employee: true, line: { include: { stockItem: true, request: true } } }, orderBy: [{ earnedAt: "desc" }], take: limit }),
+        prisma.rewardEarned.count({ where }),
+      ])
+      const ST = { DUE: "Due", IN_PROGRESS: "In approval", ISSUED: "Issued", CANCELLED: "Cancelled" } as const
+      return {
+        title: meta.title,
+        columns: [
+          { key: "earned", header: "Earned", width: 13 },
+          { key: "empId", header: "Emp ID", width: 13 },
+          { key: "name", header: "Name", width: 24 },
+          { key: "milestone", header: "Milestone", numeric: true, align: "right" },
+          { key: "cycle", header: "Cycle", numeric: true, align: "right" },
+          { key: "title", header: "Title", width: 14 },
+          { key: "status", header: "Status", width: 12 },
+          { key: "goodie", header: "Goodie", width: 30 },
+          { key: "request", header: "Request", width: 20 },
+          { key: "issued", header: "Issued", width: 13 },
+        ],
+        rows: rows.map((r) => ({ earned: fmtDate(r.earnedAt), empId: r.employee.empId, name: r.employee.name, milestone: r.threshold, cycle: r.cycle, title: r.title, status: ST[r.status], goodie: r.line?.stockItem.name ?? "", request: r.line?.request.number ?? "", issued: r.issuedAt ? fmtDate(r.issuedAt) : "" })),
         total,
       }
     }
