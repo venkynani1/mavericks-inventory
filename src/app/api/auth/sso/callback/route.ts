@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { audit } from "@/lib/server/audit"
+import { linkEmployee } from "@/lib/server/portal"
 import { createSession } from "@/lib/server/session"
 import { SSO_COOKIE, SsoError, completeSignIn, ssoConfig, type SsoIdentity } from "@/lib/server/sso"
 
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
     (await prisma.user.findFirst({ where: { email: { equals: identity.email, mode: "insensitive" } } }))
 
   if (!user) {
+    if (!identity.role && cfg.defaultRole) identity = { ...identity, role: cfg.defaultRole }
     if (!cfg.autoCreate || !identity.role) {
       await audit(prisma, { action: "USER.SSO_DENIED", entity: "User", summary: `SSO sign-in refused for ${identity.email}: no app role assigned (${identity.rawRoles.join(", ") || "none"})` })
       return fail("no_access")
@@ -62,6 +64,7 @@ export async function GET(req: Request) {
     updates.role = identity.role
   }
   user = await prisma.user.update({ where: { id: user.id }, data: updates })
+  await linkEmployee(user)
   await audit(prisma, { actorId: user.id, action: "USER.LOGIN", entity: "User", entityId: user.id, summary: `${user.name} signed in with ${cfg.providerName}` })
 
   await createSession({ id: user.id, role: user.role }, "sso")

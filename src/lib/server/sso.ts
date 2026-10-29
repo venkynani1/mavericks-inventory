@@ -16,9 +16,10 @@ const DEFAULT_ROLE_MAP: Record<string, Role> = {
   "Inventory.Manager": "MANAGER",
   "Inventory.Authority": "AUTHORITY",
   "Inventory.Admin": "ADMIN",
+  "Inventory.Employee": "EMPLOYEE",
 }
 // If someone holds several roles, the most senior one wins.
-const ROLE_RANK: Role[] = ["ADMIN", "AUTHORITY", "MANAGER", "EXECUTIVE"]
+const ROLE_RANK: Role[] = ["ADMIN", "AUTHORITY", "MANAGER", "EXECUTIVE", "EMPLOYEE"]
 
 export type SsoConfig = {
   issuer: string
@@ -34,6 +35,8 @@ export type SsoConfig = {
   allowedDomains: string[]
   signOutEverywhere: boolean
   appUrl: string | null
+  /** Role for people with no app role in the identity provider (e.g. EMPLOYEE, so everyone can see their points). Empty = refuse. */
+  defaultRole: Role | null
 }
 
 const bool = (v: string | undefined, dflt: boolean) => (v === undefined || v === "" ? dflt : v.toLowerCase() === "true")
@@ -65,6 +68,7 @@ export function ssoConfig(): SsoConfig | null {
     allowedDomains: (process.env.SSO_ALLOWED_EMAIL_DOMAINS ?? "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean),
     signOutEverywhere: bool(process.env.SSO_SIGN_OUT_EVERYWHERE, false),
     appUrl: process.env.APP_URL?.trim().replace(/\/+$/, "") || null,
+    defaultRole: (["EMPLOYEE", "EXECUTIVE", "MANAGER", "AUTHORITY"] as Role[]).find((r) => r === process.env.SSO_DEFAULT_ROLE?.trim().toUpperCase()) ?? null,
   }
 }
 

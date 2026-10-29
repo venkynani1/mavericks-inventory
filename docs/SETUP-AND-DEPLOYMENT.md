@@ -659,7 +659,7 @@ Other providers: same settings, different `SSO_ISSUER`. Okta: `https://YOUR-ORG.
 
 **Check it:** open the sign-in page. It now shows **Sign in with Microsoft** above the password form.
 
-![Sign-in page with SSO](screenshots/38-sign-in-with-sso.png)
+![Sign-in page with SSO](screenshots/60-sign-in-with-sso.png)
 
 ### 13.5 Roll it out safely
 
@@ -667,7 +667,7 @@ Other providers: same settings, different `SSO_ISSUER`. Okta: `https://YOUR-ORG.
 2. **Production, both ways on** (`SSO_ONLY=false`) for a week or two. Existing users are linked by email the first time they use the button.
 3. **Production, SSO only** (`SSO_ONLY=true`). The password form disappears:
 
-   ![SSO-only sign-in](screenshots/41-sso-only-sign-in.png)
+   ![SSO-only sign-in](screenshots/63-sso-only-sign-in.png)
 
 4. Remove `BOOTSTRAP_ADMIN_PASSWORD`, keep two administrators, and record the client-secret expiry date.
 
@@ -688,7 +688,7 @@ SSO_PROVIDER_NAME="Mock company login" npm run dev
 
 Select **Sign in with Mock company login** and pick a test person: a new executive, a new manager, an existing user (linked by email), someone whose role changed, someone with no role (refused), or someone from another domain.
 
-![Mock identity provider](screenshots/39-identity-provider.png)
+![Mock identity provider](screenshots/61-identity-provider.png)
 
 `npm run sso-check` runs 15 automatic checks against it (new user, linking, role sync, refusals, cancelled sign-in, forged and tampered callbacks, SSO-only mode, break-glass). GitHub Actions runs them on every push.
 

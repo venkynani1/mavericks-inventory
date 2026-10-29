@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db"
 import { run } from "@/lib/server/action"
 import { audit } from "@/lib/server/audit"
 import { AppError, assertPermission } from "@/lib/server/session"
+import { linkEmployee } from "@/lib/server/portal"
 
 const roleEnum = z.enum(["EXECUTIVE", "MANAGER", "AUTHORITY", "ADMIN", "EMPLOYEE"])
 const userSchema = z.object({
@@ -46,6 +47,7 @@ export async function createUser(input: UserInput) {
     const u = await prisma.user.create({
       data: { ...v, department: v.department || null, location: v.location || null, passwordHash: await bcrypt.hash(pw, 10), mustChangePw: true },
     })
+    await linkEmployee(u)
     await audit(prisma, { actorId: admin.id, action: "USER.CREATE", entity: "User", entityId: u.id, summary: `Created ${u.name} (${u.role})`, after: { ...u, passwordHash: undefined } })
     revalidatePath("/admin/users")
     return { tempPassword: pw }
@@ -65,6 +67,7 @@ export async function updateUser(id: string, input: UserInput & { active: boolea
       if (admins <= 1) throw new AppError("This is the last active administrator. Add another admin first.")
     }
     const after = await prisma.user.update({ where: { id }, data: { ...v, department: v.department || null, location: v.location || null, active: input.active } })
+    await linkEmployee(after)
     const strip = (u: typeof before) => ({ ...u, passwordHash: undefined })
     await audit(prisma, { actorId: admin.id, action: "USER.UPDATE", entity: "User", entityId: id, summary: `Updated ${after.name}${before.role !== after.role ? `, role ${before.role} → ${after.role}` : ""}${before.active !== after.active ? (after.active ? ", reactivated" : ", deactivated") : ""}`, before: strip(before), after: strip(after) })
     revalidatePath("/admin/users")

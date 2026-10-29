@@ -23,6 +23,7 @@ export const PEOPLE = [
   { sub: "u-neha", name: "Neha Joshi", email: "neha.joshi@hexaware.example", roles: ["Inventory.Authority"], note: "New Management Authority" },
   { sub: "u-kavin", name: "Kavin Raj", email: "executive@mavericks.demo", roles: ["Inventory.Executive"], note: "Existing user: linked by email" },
   { sub: "u-divya", name: "Divya Menon", email: "executive2@mavericks.demo", roles: ["Inventory.Manager"], note: "Existing executive, now a manager in the directory (role sync)" },
+  { sub: "u-lata", name: "Lata Iyer", email: "lata.iyer@hexaware.example", roles: ["Inventory.Employee"], employeeid: "2000910002", note: "Employee: sees only their own points and goodies" },
   { sub: "u-sam", name: "Sam Thomas", email: "sam.thomas@hexaware.example", roles: [], note: "No app role assigned (should be refused)" },
   { sub: "u-ext", name: "Outside Partner", email: "partner@othercompany.example", roles: ["Inventory.Executive"], note: "Email domain outside the company" },
 ]
@@ -72,7 +73,7 @@ const server = createServer(async (req, res) => {
       if (q.get("response_type") !== "code" || q.get("code_challenge_method") !== "S256" || !q.get("code_challenge"))
         return send(res, 400, html("<h1>Bad request</h1><p>Expected the code flow with PKCE (S256).</p>"), "text/html")
       const pass = new URLSearchParams({ redirect_uri: q.get("redirect_uri"), state: q.get("state") ?? "", nonce: q.get("nonce") ?? "", challenge: q.get("code_challenge") })
-      const people = PEOPLE.map((p) => `<a class="person" href="/approve?${pass}&sub=${p.sub}"><strong>${p.name}</strong><small>${p.email} · roles: ${p.roles.join(", ") || "none"}</small><small>${p.note}</small></a>`).join("")
+      const people = PEOPLE.map((p) => `<a class="person" href="/approve?${pass}&sub=${p.sub}"><strong>${p.name}</strong><small>${p.email}, roles: ${p.roles.join(", ") || "none"}</small><small>${p.note}</small></a>`).join("")
       return send(res, 200, html(`<h1>Mock company login</h1><p>Choose who to sign in as.</p><p class="warn">Test provider only. Real users sign in with Microsoft Entra ID.</p>${people}
         <a class="person" href="${q.get("redirect_uri")}?error=access_denied&error_description=User+cancelled&state=${encodeURIComponent(q.get("state") ?? "")}"><strong>Cancel</strong><small>Return to the app without signing in</small></a>`), "text/html")
     }

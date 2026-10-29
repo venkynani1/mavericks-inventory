@@ -19,7 +19,8 @@
     "e2e": "node scripts/e2e.mjs",
     "screenshots": "SCREENSHOTS=1 node scripts/e2e.mjs",
     "mock-sso": "node scripts/mock-oidc.mjs",
-    "sso-check": "node scripts/sso-check.mjs"
+    "sso-check": "node scripts/sso-check.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

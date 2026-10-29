@@ -59,6 +59,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Unit tests (points rules, access control)
+        run: npm test
+
       - name: Build
         run: npm run build
 

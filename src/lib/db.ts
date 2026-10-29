@@ -16,6 +16,13 @@ if (!isPg(process.env.DATABASE_URL)) process.env.DATABASE_URL = pick(["DATABASE_
 if (!isPg(process.env.DIRECT_URL))
   process.env.DIRECT_URL = pick(["DIRECT_URL", "DATABASE_URL_UNPOOLED", "POSTGRES_URL_NON_POOLING"]) || process.env.DATABASE_URL
 
+// Pages run several queries side by side. Prisma's default pool is (CPUs x 2 + 1), which is only 3 to 5
+// connections on a small serverless function, so parallel queries would queue and each wait adds a
+// full round trip to the database. Allow 10 unless the address already says otherwise. Use the
+// provider's pooled address (Neon "-pooler", RDS Proxy, PgBouncer) so this stays cheap.
+if (process.env.DATABASE_URL && !/[?&]connection_limit=/.test(process.env.DATABASE_URL))
+  process.env.DATABASE_URL += `${process.env.DATABASE_URL.includes("?") ? "&" : "?"}connection_limit=${process.env.DB_POOL_SIZE || 10}`
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 export const prisma =

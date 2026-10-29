@@ -37,6 +37,12 @@ async function ssoAs(page, personName) {
   return new URL(page.url())
 }
 
+/** The email/password form is folded away when demo accounts are shown. */
+async function showPasswordForm(p) {
+  if ((await p.locator("#email").count()) && !(await p.locator("#email").isVisible())) await p.getByText("Sign in with email and password").click()
+}
+const signInButton = (p) => p.getByRole("button", { name: "Sign in", exact: true })
+
 const whoAmI = async (page) => (await page.getByRole("button", { name: "Account menu" }).innerText()).replace(/\s+/g, " ").trim()
 
 try {
@@ -46,12 +52,13 @@ try {
       const p = await fresh()
       await p.goto(`${BASE}/login`, { waitUntil: "networkidle" })
       await p.getByRole("link", { name: `Sign in with ${PROVIDER}` }).waitFor()
+      await showPasswordForm(p)
       await p.locator("#password").waitFor()
-      if (SHOTS) await p.screenshot({ path: `${SHOTS}/38-sign-in-with-sso.png` })
+      if (SHOTS) await p.screenshot({ path: `${SHOTS}/60-sign-in-with-sso.png` })
       ok("sign-in page offers company sign-in and the password form")
       await p.getByRole("link", { name: `Sign in with ${PROVIDER}` }).click()
       await p.waitForURL(/localhost:4400\/authorize/)
-      if (SHOTS) await p.screenshot({ path: `${SHOTS}/39-identity-provider.png` })
+      if (SHOTS) await p.screenshot({ path: `${SHOTS}/61-identity-provider.png` })
       assert.match(p.url(), /code_challenge_method=S256/)
       assert.match(p.url(), /nonce=/)
       ok("the provider is asked for the code flow with PKCE, state and nonce")
@@ -81,10 +88,19 @@ try {
     }
     {
       const p = await fresh()
+      const at = await ssoAs(p, "Lata Iyer")
+      assert.equal(at.pathname, "/me")
+      await p.getByText("Your points", { exact: true }).waitFor()
+      await p.goto(`${BASE}/stock`, { waitUntil: "networkidle" })
+      assert.equal(new URL(p.url()).pathname, "/me")
+      ok("someone with the Employee app role gets their own portal, linked to an employee record, and nothing else")
+    }
+    {
+      const p = await fresh()
       const at = await ssoAs(p, "Sam Thomas")
       assert.equal(at.pathname, "/login")
       await p.getByText("You don't have access to Mavericks Inventory yet").waitFor()
-      if (SHOTS) await p.screenshot({ path: `${SHOTS}/40-sso-no-access.png` })
+      if (SHOTS) await p.screenshot({ path: `${SHOTS}/62-sso-no-access.png` })
       ok("someone with no app role is refused with a clear message")
     }
     {
@@ -115,9 +131,10 @@ try {
     {
       const p = await fresh()
       await p.goto(`${BASE}/login`, { waitUntil: "networkidle" })
+      await showPasswordForm(p)
       await p.fill("#email", "manager@mavericks.demo")
       await p.fill("#password", process.env.SEED_PASSWORD || "Mavericks@2026")
-      await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/login")), p.click("button[type=submit]")])
+      await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/login")), signInButton(p).click()])
       ok("password sign-in still works while SSO is optional")
     }
   } else {
@@ -126,18 +143,19 @@ try {
     await p.goto(`${BASE}/login`, { waitUntil: "networkidle" })
     await p.getByRole("link", { name: `Sign in with ${PROVIDER}` }).waitFor()
     assert.equal(await p.locator("#password").count(), 0)
-    if (SHOTS) await p.screenshot({ path: `${SHOTS}/41-sso-only-sign-in.png` })
+    if (SHOTS) await p.screenshot({ path: `${SHOTS}/63-sso-only-sign-in.png` })
     ok("the password form is hidden")
     await p.getByRole("link", { name: /Administrator sign-in without/ }).click()
     await p.locator("#password").waitFor()
+    await showPasswordForm(p)
     await p.fill("#email", "executive@mavericks.demo")
     await p.fill("#password", process.env.SEED_PASSWORD || "Mavericks@2026")
-    await p.click("button[type=submit]")
+    await signInButton(p).click()
     await p.getByText(`Use "Sign in with ${PROVIDER}"`).waitFor()
     ok("non-admins can't use a password")
     await p.fill("#email", "admin@mavericks.demo")
     await p.fill("#password", process.env.SEED_PASSWORD || "Mavericks@2026")
-    await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/login")), p.click("button[type=submit]")])
+    await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/login")), signInButton(p).click()])
     ok("an administrator can still sign in with a password (break-glass)")
     const q = await fresh()
     await ssoAs(q, "Ravi Shankar")
