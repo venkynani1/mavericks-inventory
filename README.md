@@ -69,7 +69,7 @@ With the demo data loaded (`npm run db:seed`), the sign-in page shows **Explore 
 9. As the **Executive**, open **Events → New event** (a workshop), then paste a few employee IDs (for example `2000149999`). Points are credited and anyone crossing 2,000 points appears in **Rewards**. Select them and **Create distribution and submit**; the Manager approves and the rewards show as issued.
 10. Sign in as the **Employee** (Priyanka Sharma): her points, the progress track to 20,000 and her goodies. Select **Ask Mav** and ask "How many points do I have?".
 
-The same script runs automatically as an end-to-end test (`npm run e2e`, 71 checks in a real browser; `npm test` runs 23 unit tests) on every push.
+The same script runs automatically as an end-to-end test (`npm run e2e`, 73 checks in a real browser; `npm test` runs 23 unit tests) on every push.
 
 ## Run it on your computer
 

@@ -376,6 +376,23 @@ At hackathons, codeathons and contests, record the winners and what they get. Op
 
 ![Winners on an event](screenshots/54-winners.png)
 
+**Many winners at once:** select **Upload winners** on the event, then **Template**. Fill one row per winner:
+
+| Column | Required | Example |
+| --- | --- | --- |
+| Employee ID | Yes | 2000149999 |
+| Position | Yes | Winner, Runner-up, Second runner-up, Top performer, Special mention (also 1st, 2nd, 3rd) |
+| Prize type | No | Voucher, Goodie or Other (worked out from the other columns if empty) |
+| Voucher amount | For vouchers | 5000 |
+| Goodie (stock code) | For goodies | The stock code from the template's "Stock codes" sheet, or the item name |
+| Quantity | No | 1 |
+| Prize description | For other prizes | Trophy and certificate |
+| Bonus points | No | Empty uses the position's default |
+
+Each row is saved on its own, so one bad row doesn't stop the rest; the result lists the rows that need attention and why.
+
+![Upload winners](screenshots/58-winners-upload.png)
+
 To cancel a prize that hasn't been handed over, select the cross on its row and give a reason; its bonus points are taken back.
 
 **Handing prizes over: Event prizes** (menu, Engagement; the number shows prizes still to hand out):
@@ -406,6 +423,10 @@ Select **Milestone rewards** (the number in the menu is how many are due).
 **Employees and points** lists everyone with their points, a bar towards 20,000, events attended and rewards due. Tabs show **Active**, **With points**, **Reward due** and **Inactive**; you can sort by name, filter by department and search. **Export** downloads the list.
 
 ![Employees](screenshots/38-employees.png)
+
+**Add or update many employees:** select **Upload employees**, then **Template**. Columns: Employee ID and Employee Name (required), and optionally Email, Department, Designation, Location and Active (Yes/No). New IDs are added and existing ones are updated with the sheet's details; points are never changed by an upload. Rows with problems (a missing ID, a bad email, an ID listed twice) are listed.
+
+![Upload employees](screenshots/57-employees-upload.png)
 
 Select a person to see their **current points**, **lifetime points** and **rank**, the **progress track** with a gift at each milestone (green: received, gold: earned), their **rewards**, **points history**, **events attended** and **goodies received**. **Add employee** and **Edit details** keep the list tidy; switching someone to inactive stops them earning points.
 
@@ -659,3 +680,6 @@ Open the event, select **Add winner**, choose **Voucher**, enter the amount and 
 
 **Can I add next quarter's events in one go?**
 Yes. **Events → Upload events**, fill the template (event name, type, date) and upload it. The events appear under Upcoming.
+
+**Can I add all the new joiners or the whole hackathon results in one go?**
+Yes. **Employees and points → Upload employees** adds or updates people from a sheet. On an event, **Upload winners** records every winner and prize from one sheet.

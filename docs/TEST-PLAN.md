@@ -20,9 +20,9 @@ This document says what is tested, how, and what a business user should try befo
 | --- | --- | --- | --- |
 | Static | TypeScript (`npm run typecheck`), ESLint (`npm run lint`) | No type errors, no unsafe patterns | whole codebase |
 | Unit | Vitest (`npm test`) | Points rules (cap, milestones, progress, overrides) and role permissions (who may do what, which menu each role sees) | 23 tests |
-| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, points, rewards, stock counts, the employee portal, the assistant, notifications | 71 checks |
+| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, points, rewards, stock counts, the employee portal, the assistant, notifications | 73 checks |
 | Single sign-on | Playwright + mock identity provider (`npm run sso-check`) | Code flow with PKCE, state and nonce; account creation and linking; role sync; employee role; refusals; SSO-only mode | 16 checks |
-| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 71 checks |
+| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 73 checks |
 
 ## 2. How to run the tests
 
@@ -55,7 +55,7 @@ The end-to-end suite, in order (each line is one check):
 
 **Events, points and rewards:** admin adds an employee · admin adjusts points with a reason (in history) · executive creates an event · pasting IDs marks attendance, credits points, reports unknown IDs and flags milestones · marking twice is skipped · 1,900 + 400 = 2,300 · the 2,000 reward goes onto a distribution with the milestone goodie · approval issues it · removing an attendee reverses exactly their points · admin changes event-type points · leaderboard ranks people.
 
-**Events upload, winners and prizes:** an events sheet creates upcoming events and lists bad rows · the same sheet again creates no duplicates · uploaded events show under Upcoming · a winner gets an Amazon voucher, is marked present and gets bonus points · a runner-up gets a goodie from stock · bonus points credited (1,900 + 400 + 500 = 2,800) · a voucher is marked issued with its order reference · a goodie prize goes out through an approved distribution and stock drops by 1 · the employee sees their prizes.
+**Events upload, winners and prizes:** an events sheet creates upcoming events and lists bad rows · the same sheet again creates no duplicates · uploaded events show under Upcoming · a winner gets an Amazon voucher, is marked present and gets bonus points · a runner-up gets a goodie from stock · bonus points credited (1,900 + 400 + 500 = 2,800) · an employee sheet adds and updates people and lists bad rows · a winners sheet records vouchers, goodies and other prizes at once and lists bad rows · a voucher is marked issued with its order reference · a goodie prize goes out through an approved distribution and stock drops by 1 · the employee sees their prizes.
 
 **Stock count and movements:** a count sends only the difference for approval · approval adjusts stock by the difference · the adjustment appears in stock movements · system status shows regions and latency.
 

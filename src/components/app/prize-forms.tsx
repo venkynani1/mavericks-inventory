@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { BadgeCheckIcon, DownloadIcon, GiftIcon, PencilIcon, PlusCircleIcon, TicketIcon, TrophyIcon, UploadIcon, XCircleIcon } from "lucide-react"
-import { addEventAward, cancelEventAward, distributeEventAwards, issueEventAwards, saveAwardPosition, uploadEvents, type EventUploadResult } from "@/app/actions/rewards"
+import { addEventAward, cancelEventAward, distributeEventAwards, issueEventAwards, saveAwardPosition, uploadEmployees, uploadEvents, uploadWinners, type EventUploadResult } from "@/app/actions/rewards"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -399,6 +399,94 @@ export function PositionDialog({ position }: { position?: { id: string; name: st
             {pending && <Spinner data-icon="inline-start" />}
             Save
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------- generic sheet upload (employees, winners) ----------------
+
+type SheetResult = { rows: number; lines: string[]; errors: { row: number; message: string }[] }
+
+export function SheetUploadDialog({ kind, eventId }: { kind: "employees" | "winners"; eventId?: string }) {
+  const [open, setOpen] = useState(false)
+  const [result, setResult] = useState<SheetResult | null>(null)
+  const file = useRef<HTMLInputElement>(null)
+  const { pending, error, setError, submit } = useSubmit()
+  const text = {
+    employees: {
+      button: "Upload employees",
+      title: "Add or update employees from Excel",
+      body: "One row per person: Employee ID and Employee Name, plus optional Email, Department, Designation, Location and Active (Yes/No). New IDs are added; existing ones are updated. Points are never changed.",
+    },
+    winners: {
+      button: "Upload winners",
+      title: "Upload winners and prizes",
+      body: "One row per winner: Employee ID and Position (Winner, Runner-up…), then the prize: Voucher with an amount, Goodie with a stock code, or Other with a description. Bonus points default to the position's. Anyone not marked present is marked present too.",
+    },
+  }[kind]
+  const action = (fd: FormData) => (kind === "employees" ? uploadEmployees(fd) : uploadWinners(eventId!, fd))
+  return (
+    <Dialog open={open} onOpenChange={(o) => (setOpen(o), o && (setResult(null), setError(null)))}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <UploadIcon data-icon="inline-start" />
+          {text.button}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{text.title}</DialogTitle>
+          <DialogDescription>{text.body}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={file}
+            type="file"
+            accept=".xlsx"
+            className="sr-only"
+            aria-label={`${kind === "employees" ? "Employees" : "Winners"} sheet`}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              const fd = new FormData()
+              fd.set("file", f)
+              submit(() => action(fd), (r) => setResult(r.data as SheetResult))
+              e.target.value = ""
+            }}
+          />
+          <Button disabled={pending} onClick={() => file.current?.click()}>
+            {pending ? <Spinner data-icon="inline-start" /> : <UploadIcon data-icon="inline-start" />}
+            {pending ? "Saving…" : "Choose the Excel file"}
+          </Button>
+          <Button variant="ghost" asChild>
+            <a href={`/api/templates/${kind}`}>
+              <DownloadIcon data-icon="inline-start" />
+              Template
+            </a>
+          </Button>
+        </div>
+        <ErrorNote error={error} />
+        {result && (
+          <div data-testid="sheet-result" className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <p>
+              <span className="font-semibold">{result.lines[0]}</span>
+              {result.lines.length > 1 && <>, {result.lines.slice(1).join(", ")}</>} from {fmtNum(result.rows)} row{result.rows === 1 ? "" : "s"}.
+            </p>
+            {result.errors.length > 0 && (
+              <div className="text-rejected">
+                <p className="font-medium">{result.errors.length} row{result.errors.length > 1 ? "s" : ""} need attention:</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {result.errors.slice(0, 12).map((e, i) => <li key={`${e.row}-${i}`}>Row {e.row}: {e.message}</li>)}
+                </ul>
+                {result.errors.length > 12 && <p>…and {result.errors.length - 12} more.</p>}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

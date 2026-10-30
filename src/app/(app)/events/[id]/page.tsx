@@ -3,7 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeftIcon, BanIcon, CalendarIcon, MapPinIcon, TrophyIcon, UserIcon } from "lucide-react"
 import { awardPositions, prizeText } from "@/lib/server/awards"
-import { AwardDialog, CancelAward } from "@/components/app/prize-forms"
+import { AwardDialog, CancelAward, SheetUploadDialog } from "@/components/app/prize-forms"
 import { prisma } from "@/lib/db"
 import { can } from "@/lib/roles"
 import { setEventStatus } from "@/app/actions/rewards"
@@ -105,7 +105,15 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <PanelHeader
               title={<span className="inline-flex items-center gap-2"><TrophyIcon className="size-4 text-reward" />Winners and prizes</span>}
               description="Amazon vouchers, goodies or other prizes for the top performers. Goodies go out through an approved distribution from the Prizes page."
-              actions={canOperate && event.status !== "CANCELLED" && <AwardDialog eventId={event.id} positions={positions.filter((p) => p.active).map((p) => ({ name: p.name, bonusPoints: p.bonusPoints }))} items={items} />}
+              actions={
+                canOperate &&
+                event.status !== "CANCELLED" && (
+                  <>
+                    <SheetUploadDialog kind="winners" eventId={event.id} />
+                    <AwardDialog eventId={event.id} positions={positions.filter((p) => p.active).map((p) => ({ name: p.name, bonusPoints: p.bonusPoints }))} items={items} />
+                  </>
+                )
+              }
             />
             {event.awards.length ? (
               <Table>

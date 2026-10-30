@@ -6,8 +6,8 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { run } from "@/lib/server/action"
 import { audit } from "@/lib/server/audit"
-import { presentFields, readSheet, toDate, toInt, toStr } from "@/lib/server/excel"
-import { addAward, cancelAward, distributeAwards, EVENT_ALIASES, issueAwards, type AwardInput } from "@/lib/server/awards"
+import { presentFields, readSheet, toDate, toInt, toNum, toStr } from "@/lib/server/excel"
+import { addAward, awardPositions, cancelAward, distributeAwards, EVENT_ALIASES, issueAwards, type AwardInput } from "@/lib/server/awards"
 import { adjustPoints, createRewardDistribution, nextEventCode, recordAttendance, removeAttendance, resetPoints } from "@/lib/server/rewards"
 import { AppError, assertPermission } from "@/lib/server/session"
 import { SETTINGS_TAG } from "@/lib/server/settings"
@@ -389,5 +389,153 @@ export async function uploadEvents(form: FormData) {
     )
     refresh()
     return { created, duplicates, rows: sheet.rows.length, errors, upcoming }
+  })
+}
+
+// ---------------- bulk uploads: employees, winners ----------------
+
+export type SheetResult = { rows: number; lines: string[]; errors: { row: number; message: string }[] }
+
+async function readUpload(form: FormData, aliases: Record<string, string[]>, prefer: RegExp[]) {
+  const file = form.get("file")
+  if (!(file instanceof File) || !file.size) throw new AppError("Choose an Excel file (.xlsx).")
+  if (file.size > 10 * 1024 * 1024) throw new AppError("That file is larger than 10 MB.")
+  if (!/\.xlsx$/i.test(file.name)) throw new AppError("Save the sheet as .xlsx and upload it again.")
+  const sheet = await readSheet(await file.arrayBuffer(), aliases, prefer)
+  return { sheet, present: presentFields(sheet, aliases), fileName: file.name }
+}
+
+const EMP_ALIASES: Record<string, string[]> = {
+  empId: ["employee id", "emp id", "empid", "emp no", "employee number", "employee code", "id"],
+  name: ["employee name", "emp name", "full name", "name of the employee"],
+  email: ["email id", "mail", "email address", "official email", "work email"],
+  department: ["dept", "practice", "bu", "business unit"],
+  designation: ["role", "title", "job title", "grade"],
+  location: ["base location", "office", "city"],
+  active: ["status", "is active"],
+}
+
+/** Adds new employees and updates existing ones (matched by employee ID). Points are never touched. */
+export async function uploadEmployees(form: FormData) {
+  return run(async (): Promise<SheetResult> => {
+    const user = await assertPermission("rewards:operate").catch(() => assertPermission("rewards:configure"))
+    const { sheet, present, fileName } = await readUpload(form, EMP_ALIASES, [/emp/i, /people/i])
+    if (!present.has("empId") || !present.has("name")) throw new AppError('The sheet needs "Employee ID" and "Employee Name" columns.')
+    if (sheet.rows.length > 20_000) throw new AppError("Upload up to 20,000 employees at a time.")
+    const errors: SheetResult["errors"] = []
+    const seen = new Set<string>()
+    const good: { row: number; empId: string; name: string; email: string | null; department: string | null; designation: string | null; location: string | null; active?: boolean }[] = []
+    for (const r of sheet.rows) {
+      const empId = (toStr(r.values.empId) ?? "").replace(/\.0$/, "")
+      const name = toStr(r.values.name)
+      const email = toStr(r.values.email)?.toLowerCase() ?? null
+      if (!empId || !/^[A-Za-z0-9-]{3,20}$/.test(empId)) { errors.push({ row: r.rowNumber, message: `Employee ID "${empId}" isn't valid (3 to 20 letters or digits)` }); continue }
+      if (!name || name.length < 2) { errors.push({ row: r.rowNumber, message: "Name is missing" }); continue }
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errors.push({ row: r.rowNumber, message: `Email "${email}" isn't valid` }); continue }
+      if (seen.has(empId)) { errors.push({ row: r.rowNumber, message: `Employee ID ${empId} appears twice in the sheet` }); continue }
+      seen.add(empId)
+      const act = toStr(r.values.active)?.toLowerCase()
+      good.push({ row: r.rowNumber, empId, name: name.slice(0, 100), email, department: toStr(r.values.department)?.slice(0, 80) ?? null, designation: toStr(r.values.designation)?.slice(0, 80) ?? null, location: toStr(r.values.location)?.slice(0, 60) ?? null, active: act ? !/^(no|n|false|inactive|left|0)$/.test(act) : undefined })
+    }
+    let created = 0
+    let updated = 0
+    let unchanged = 0
+    const existing = new Map((await prisma.employee.findMany({ where: { empId: { in: good.map((g) => g.empId) } } })).map((e) => [e.empId, e]))
+    for (const g of good) {
+      const e = existing.get(g.empId)
+      // An email already used by someone else is left out rather than failing the row.
+      const emailOwner = g.email ? await prisma.employee.findUnique({ where: { email: g.email }, select: { empId: true } }) : null
+      const email = emailOwner && emailOwner.empId !== g.empId ? undefined : g.email
+      if (emailOwner && emailOwner.empId !== g.empId) errors.push({ row: g.row, message: `Email ${g.email} already belongs to ${emailOwner.empId}; saved without it` })
+      if (!e) {
+        await prisma.employee.create({ data: { empId: g.empId, name: g.name, email: email ?? null, department: g.department, designation: g.designation, location: g.location, active: g.active ?? true } })
+        created++
+        continue
+      }
+      const data = { name: g.name, ...(email !== undefined ? { email } : {}), department: g.department ?? e.department, designation: g.designation ?? e.designation, location: g.location ?? e.location, ...(g.active !== undefined ? { active: g.active } : {}) }
+      const same = data.name === e.name && (data.email === undefined || data.email === e.email) && data.department === e.department && data.designation === e.designation && data.location === e.location && (data.active === undefined || data.active === e.active)
+      if (same) { unchanged++; continue }
+      await prisma.employee.update({ where: { id: e.id }, data })
+      updated++
+    }
+    await audit(prisma, { actorId: user.id, action: "EMPLOYEE.UPLOAD", entity: "Employee", summary: `Uploaded ${fileName}: ${created} added, ${updated} updated, ${unchanged} unchanged, ${errors.length} problem(s)` })
+    refresh()
+    return {
+      rows: sheet.rows.length,
+      lines: [`${created} employee${created === 1 ? "" : "s"} added`, `${updated} updated`, ...(unchanged ? [`${unchanged} already up to date`] : [])],
+      errors: errors.sort((a, b) => a.row - b.row),
+    }
+  })
+}
+
+const WIN_ALIASES: Record<string, string[]> = {
+  empId: ["employee id", "emp id", "empid", "emp no", "employee number", "employee code", "id"],
+  name: ["employee name", "emp name", "full name"],
+  position: ["place", "rank", "award", "prize position", "result"],
+  kind: ["prize type", "type", "reward type"],
+  amount: ["voucher amount", "amount", "voucher value", "value", "amount (rs)", "amount (inr)"],
+  provider: ["voucher from", "voucher provider", "provider", "brand"],
+  item: ["goodie", "goodie (stock code)", "stock code", "item", "goodie code", "item code"],
+  quantity: ["qty", "quantity"],
+  description: ["prize", "prize description", "description", "note", "notes", "remarks"],
+  bonus: ["bonus points", "bonus", "points"],
+}
+
+/** Records many winners for one event from a sheet. Each row is saved on its own, so one bad row doesn't stop the rest. */
+export async function uploadWinners(eventId: string, form: FormData) {
+  return run(async (): Promise<SheetResult> => {
+    const user = await assertPermission("rewards:operate")
+    const { sheet, present, fileName } = await readUpload(form, WIN_ALIASES, [/winner/i, /prize/i, /result/i])
+    if (!present.has("empId") || !present.has("position")) throw new AppError('The sheet needs "Employee ID" and "Position" columns.')
+    if (sheet.rows.length > 500) throw new AppError("Upload up to 500 winners at a time.")
+    const event = await prisma.event.findUnique({ where: { id: eventId } })
+    if (!event) throw new AppError("Event not found.", 404)
+    const positions = await awardPositions()
+    const items = await prisma.stockItem.findMany({ where: { status: "ACTIVE" }, select: { id: true, code: true, name: true } })
+    const findItem = (raw: string) => {
+      const t = raw.trim().toLowerCase()
+      return items.find((i) => i.code.toLowerCase() === t) ?? items.find((i) => i.name.toLowerCase() === t) ?? items.filter((i) => i.name.toLowerCase().includes(t)).at(0)
+    }
+    const errors: SheetResult["errors"] = []
+    let saved = 0
+    let marked = 0
+    let vouchers = 0
+    let voucherTotal = 0
+    for (const r of sheet.rows) {
+      const empId = (toStr(r.values.empId) ?? "").replace(/\.0$/, "")
+      const posRaw = toStr(r.values.position) ?? ""
+      const pos = positions.find((p) => p.name.toLowerCase() === posRaw.trim().toLowerCase()) ?? positions.find((p) => p.name.toLowerCase().replace(/[^a-z]/g, "") === posRaw.toLowerCase().replace(/[^a-z]/g, "")) ?? (/^(1|1st|first)$/i.test(posRaw.trim()) ? positions.find((p) => p.name === "Winner") : /^(2|2nd|second)$/i.test(posRaw.trim()) ? positions.find((p) => p.name === "Runner-up") : /^(3|3rd|third)$/i.test(posRaw.trim()) ? positions.find((p) => p.name === "Second runner-up") : undefined)
+      const amount = r.values.amount === null || r.values.amount === undefined ? null : toNum(r.values.amount)
+      const itemRaw = toStr(r.values.item)
+      const kindRaw = (toStr(r.values.kind) ?? "").toLowerCase()
+      const kind: AwardInput["kind"] = /voucher|amazon|gift card|card/.test(kindRaw) ? "VOUCHER" : /goodie|stock|item|merch/.test(kindRaw) ? "GOODIE" : /other|trophy|certificate/.test(kindRaw) ? "OTHER" : amount ? "VOUCHER" : itemRaw ? "GOODIE" : "OTHER"
+      if (!empId) { errors.push({ row: r.rowNumber, message: "Employee ID is missing" }); continue }
+      const posName = pos?.name ?? (posRaw.trim() || null)
+      if (!posName) { errors.push({ row: r.rowNumber, message: "Position is missing" }); continue }
+      const bonusRaw = r.values.bonus === null || r.values.bonus === undefined ? null : toInt(r.values.bonus)
+      if (bonusRaw !== null && Number.isNaN(bonusRaw)) { errors.push({ row: r.rowNumber, message: "Bonus points must be a whole number" }); continue }
+      const item = kind === "GOODIE" && itemRaw ? findItem(itemRaw) : undefined
+      if (kind === "GOODIE" && !item) { errors.push({ row: r.rowNumber, message: itemRaw ? `No active stock item matches "${itemRaw}" (use the stock code)` : "Goodie prize needs a stock code or item name" }); continue }
+      if (kind === "VOUCHER" && (amount === null || Number.isNaN(amount) || amount <= 0)) { errors.push({ row: r.rowNumber, message: "Voucher prize needs an amount in rupees" }); continue }
+      const qty = r.values.quantity === null || r.values.quantity === undefined ? 1 : toInt(r.values.quantity)
+      try {
+        const res = await addAward(eventId, {
+          empId, position: posName, kind, stockItemId: item?.id, quantity: Number.isNaN(qty as number) ? 1 : (qty ?? 1), voucherProvider: toStr(r.values.provider) ?? "Amazon",
+          voucherAmount: amount ?? undefined, description: toStr(r.values.description) ?? (kind === "OTHER" ? posName : undefined), bonusPoints: bonusRaw ?? pos?.bonusPoints ?? 0,
+        }, user)
+        saved++
+        if (res.markedPresent) marked++
+        if (kind === "VOUCHER") { vouchers++; voucherTotal += Math.trunc(amount ?? 0) }
+      } catch (e) {
+        errors.push({ row: r.rowNumber, message: e instanceof AppError ? e.message : "Couldn't be saved" })
+      }
+    }
+    await audit(prisma, { actorId: user.id, action: "AWARD.UPLOAD", entity: "Event", entityId: eventId, summary: `Uploaded ${fileName} for ${event.code}: ${saved} prize(s) saved, ${errors.length} row(s) with problems` })
+    refresh(`/events/${eventId}`, "/prizes")
+    return {
+      rows: sheet.rows.length,
+      lines: [`${saved} winner${saved === 1 ? "" : "s"} saved`, ...(vouchers ? [`${vouchers} voucher${vouchers > 1 ? "s" : ""} worth ₹${voucherTotal.toLocaleString("en-IN")}`] : []), ...(marked ? [`${marked} also marked present`] : [])],
+      errors,
+    }
   })
 }

@@ -622,6 +622,28 @@ try {
     await exec.getByText(upName).waitFor()
     ok("uploaded events show under Upcoming")
 
+    // Employees in bulk: one new, one updated, one bad row.
+    const bulkId = `28${Date.now().toString().slice(-8)}`
+    const empFile = join(tmpdir(), `employees-${Date.now()}.xlsx`)
+    await writeXlsx(empFile, "Employees", [
+      ["Employee ID", "Employee Name", "Email", "Department", "Designation", "Location"],
+      [bulkId, tag("Karthik Subramanian"), "", "Quality Engineering", "Software Engineer", "Chennai"],
+      [empId, empName, "", "Cloud & Infra", "Senior Software Engineer", "Pune"],
+      ["", "No ID Person", "", "", "", ""],
+    ])
+    await go(admin, "/employees")
+    await admin.getByRole("button", { name: "Upload employees" }).click()
+    await dialog(admin).locator("input[type=file]").setInputFiles(empFile)
+    await dialog(admin).getByTestId("sheet-result").waitFor({ timeout: 60_000 })
+    const empRes = await dialog(admin).getByTestId("sheet-result").innerText()
+    assert.match(empRes, /1 employee added, 1 updated/)
+    assert.match(empRes, /Row 4: Employee ID/)
+    await shot(admin, "57-employees-upload")
+    ok("an employee sheet adds new people, updates existing ones and lists bad rows")
+    await dialog(admin).getByRole("button", { name: "Done" }).click()
+    await go(admin, `/employees?q=${bulkId}`)
+    await admin.getByText(tag("Karthik Subramanian")).waitFor()
+
     // Winners at the workshop created above.
     await go(exec, eventPath)
     await exec.getByRole("button", { name: "Add winner" }).click()
@@ -647,6 +669,29 @@ try {
     await go(admin, empPath)
     assert.ok((await admin.locator("main").innerText()).includes("2,800"), "1,900 + 400 workshop + 500 winner bonus")
     ok("bonus points for the win are credited (1,900 + 400 + 500 = 2,800)")
+
+    // Winners in bulk from one sheet, for the same event.
+    const winFile = join(tmpdir(), `winners-${Date.now()}.xlsx`)
+    await writeXlsx(winFile, "Winners", [
+      ["Employee ID", "Employee Name", "Position", "Prize type", "Voucher amount", "Goodie (stock code)", "Quantity", "Prize description", "Bonus points"],
+      [bulkId, "", "Top performer", "Voucher", 1500, "", "", "", ""],
+      [bulkId, "", "Special mention", "Other", "", "", "", "Certificate of excellence", 0],
+      ["2000150001", "", "Top performer", "Goodie", "", "Bluetooth Speaker", 1, "", ""],
+      ["9999999990", "", "Winner", "Voucher", 1000, "", "", "", ""],
+      [bulkId, "", "Winner", "Voucher", "", "", "", "", ""],
+    ])
+    await go(exec, eventPath)
+    await exec.getByRole("button", { name: "Upload winners" }).click()
+    await dialog(exec).locator("input[type=file]").setInputFiles(winFile)
+    await dialog(exec).getByTestId("sheet-result").waitFor({ timeout: 90_000 })
+    const winRes = await dialog(exec).getByTestId("sheet-result").innerText()
+    assert.match(winRes, /3 winners saved/)
+    assert.match(winRes, /1 voucher worth ₹1,500/)
+    assert.match(winRes, /Row 5: No employee with ID 9999999990/)
+    assert.match(winRes, /Row 6: Voucher prize needs an amount/)
+    await shot(exec, "58-winners-upload")
+    ok("a winners sheet records vouchers, goodies and other prizes at once and lists rows it couldn't use")
+    await dialog(exec).getByRole("button", { name: "Done" }).click()
 
     await go(exec, `/prizes?view=vouchers&q=${empId}`)
     await exec.getByRole("checkbox", { name: `Select ${empName}` }).click()

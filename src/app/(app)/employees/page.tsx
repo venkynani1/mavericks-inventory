@@ -15,6 +15,7 @@ import { SearchFilter, Segmented, SelectFilter } from "@/components/app/filters"
 import { Pager } from "@/components/app/pager"
 import { PointsProgress } from "@/components/app/rewards-display"
 import { EmployeeDialog } from "@/components/app/rewards-forms"
+import { SheetUploadDialog } from "@/components/app/prize-forms"
 
 export const metadata: Metadata = { title: "Employees and points" }
 const PAGE = 50
@@ -62,7 +63,12 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
                 Export
               </a>
             </Button>
-            {(can(user.role, "rewards:operate") || can(user.role, "rewards:configure")) && <EmployeeDialog />}
+            {(can(user.role, "rewards:operate") || can(user.role, "rewards:configure")) && (
+              <>
+                <SheetUploadDialog kind="employees" />
+                <EmployeeDialog />
+              </>
+            )}
           </>
         }
       />
