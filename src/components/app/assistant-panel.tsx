@@ -1,13 +1,24 @@
 "use client"
 
 import Link from "next/link"
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Component, Fragment, useEffect, useRef, useState } from "react"
 import { ArrowUpIcon, RotateCcwIcon, SparklesIcon } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
-type Msg = { role: "user" | "assistant"; text: string; links?: { label: string; href: string }[] }
+type Msg = { role: "user" | "assistant"; text: string; links?: { label: string; href: string }[]; notice?: string }
+
+/** If an answer can't be formatted, show it as plain text instead of breaking the page. */
+class SafeText extends Component<{ text: string; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? <p className="text-sm whitespace-pre-wrap">{this.props.text}</p> : this.props.children
+  }
+}
 
 /** Renders the assistant's small markdown subset: paragraphs, "- " and "1." lists, **bold** and [label](/path). */
 function Rich({ text }: { text: string }) {
@@ -93,8 +104,10 @@ export function AssistantPanel({ name }: { name: string }) {
     setBusy(true)
     try {
       const r = await fetch("/api/assistant", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next.map(({ role, text }) => ({ role, text })) }) })
-      const d = await r.json()
-      setMsgs([...next, r.ok ? { role: "assistant", text: d.text, links: d.links } : { role: "assistant", text: d.error?.message ?? "Something went wrong. Try again." }])
+      const d = await r.json().catch(() => ({}))
+      const text = typeof d?.text === "string" && d.text.trim() ? d.text : "I couldn't get an answer. Try again."
+      const links = Array.isArray(d?.links) ? d.links.filter((l: { href?: unknown; label?: unknown }) => typeof l?.href === "string" && l.href.startsWith("/") && typeof l?.label === "string") : []
+      setMsgs([...next, r.ok ? { role: "assistant", text, links, notice: typeof d?.notice === "string" ? d.notice : undefined } : { role: "assistant", text: d?.error?.message ?? "Something went wrong. Try again." }])
     } catch {
       setMsgs([...next, { role: "assistant", text: "I couldn't reach the server. Check your connection and try again." }])
     } finally {
@@ -145,7 +158,10 @@ export function AssistantPanel({ name }: { name: string }) {
                 <div key={i} className="flex gap-2.5">
                   <MavAvatar className="size-7" />
                   <div className="flex min-w-0 flex-col gap-2 rounded-2xl rounded-tl-md border bg-card px-3.5 py-2.5">
-                    <Rich text={m.text} />
+                    {m.notice && <p className="rounded-md bg-pending-soft px-2 py-1 text-xs text-pending">{m.notice}</p>}
+                    <SafeText text={m.text}>
+                      <Rich text={m.text} />
+                    </SafeText>
                     {!!m.links?.length && (
                       <div className="flex flex-wrap gap-1.5">
                         {m.links.map((l) => (

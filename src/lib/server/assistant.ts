@@ -338,6 +338,13 @@ export function assistantProvider(): Provider | null {
   return null
 }
 
+/** Providers differ: content can be a string, null, or a list of parts. Always end up with plain text. */
+function textOf(c: unknown): string {
+  if (typeof c === "string") return c.trim()
+  if (Array.isArray(c)) return c.map((x) => (typeof x === "string" ? x : typeof x?.text === "string" ? x.text : "")).join("").trim()
+  return ""
+}
+
 /** Answers with any OpenAI-compatible chat API (Gemini, Groq, OpenRouter, Azure OpenAI…), using the same role-checked tools. */
 export async function answerWithOpenAICompatible(history: { role: "user" | "assistant"; text: string }[], ctx: Ctx, p: Provider): Promise<ToolOut> {
   const tools = toolsFor(ctx.user.role).map(({ name, description, input_schema }) => ({ type: "function", function: { name, description, parameters: input_schema } }))
@@ -352,11 +359,12 @@ export async function answerWithOpenAICompatible(history: { role: "user" | "assi
       signal: AbortSignal.timeout(30_000),
     })
     if (!r.ok) throw new Error(`${p.name} API ${r.status}: ${(await r.text()).slice(0, 300)}`)
-    const data = (await r.json()) as { choices: { message: M }[] }
+    const data = (await r.json()) as { choices?: { message?: M & { content?: unknown } }[] }
     const msg = data.choices?.[0]?.message
-    if (!msg) throw new Error(`${p.name} API returned no answer`)
-    if (!msg.tool_calls?.length) return { text: (msg.content ?? "").trim() || "I couldn't find an answer to that.", links: dedupe(links) }
-    messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls })
+    if (!msg) throw new Error(`${p.name} API returned no answer: ${JSON.stringify(data).slice(0, 300)}`)
+    const content = textOf(msg.content)
+    if (!msg.tool_calls?.length) return { text: content || "I couldn't find an answer to that.", links: dedupe(links) }
+    messages.push({ role: "assistant", content, tool_calls: msg.tool_calls })
     for (const c of msg.tool_calls) {
       let args: Record<string, unknown> = {}
       try {
@@ -364,7 +372,7 @@ export async function answerWithOpenAICompatible(history: { role: "user" | "assi
       } catch {}
       const out = await runTool(c.function.name, args, ctx).catch(() => ({ text: "That lookup failed.", links: [] }))
       links.push(...(out.links ?? []))
-      messages.push({ role: "tool", tool_call_id: c.id, content: out.text })
+      messages.push({ role: "tool", tool_call_id: c.id, name: c.function.name, content: out.text } as M)
     }
   }
   return { text: "That took too many steps. Try asking a narrower question.", links: dedupe(links) }

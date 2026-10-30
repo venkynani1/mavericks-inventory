@@ -36,12 +36,24 @@ export async function POST(req: Request) {
   const last = msgs[msgs.length - 1]
   if (last.role !== "user" || !last.text.trim()) return apiError(400, "INVALID_INPUT", "The last message must be a question.")
   const ctx = await contextFor(user)
-  try {
-    const p = assistantProvider()
-    if (p) return Response.json({ ...(await (p.kind === "anthropic" ? answerWithClaude(msgs, ctx) : answerWithOpenAICompatible(msgs, ctx, p))), mode: p.name })
-  } catch (e) {
-    console.error("assistant: falling back to built-in answers", e)
+  const p = assistantProvider()
+  let notice: string | undefined
+  if (p) {
+    try {
+      const out = await (p.kind === "anthropic" ? answerWithClaude(msgs, ctx) : answerWithOpenAICompatible(msgs, ctx, p))
+      return Response.json({ text: String(out.text ?? ""), links: Array.isArray(out.links) ? out.links : [], mode: p.name })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`assistant: ${p.name} failed, using built-in answers:`, msg)
+      notice = /\b429\b|quota|rate/i.test(msg)
+        ? `${p.name} is busy or its free limit is used up, so this is a built-in answer.`
+        : /\b(401|403)\b|API key|permission/i.test(msg)
+          ? `${p.name} refused the API key, so this is a built-in answer. Check the key in the hosting settings.`
+          : /\b404\b|model/i.test(msg)
+            ? `${p.name} doesn't recognise the model "${p.model}", so this is a built-in answer. Set ASSISTANT_MODEL to a current model.`
+            : `${p.name} didn't answer, so this is a built-in answer.`
+    }
   }
   const out = await answerOffline(last.text, ctx)
-  return Response.json({ text: out.text, links: out.links ?? [], mode: "built-in" })
+  return Response.json({ text: out.text, links: out.links ?? [], mode: "built-in", notice })
 }
