@@ -194,6 +194,9 @@ export async function approveRequest(id: string, user: SessionUser, remarks?: st
         // Points rewards carried by this distribution are now handed over.
         const issued = await tx.rewardEarned.updateMany({ where: { line: { is: { requestId: id } } }, data: { status: "ISSUED", issuedAt: new Date() } })
         if (issued.count) await audit(tx, { actorId: user.id, action: "REWARD.ISSUED", entity: "Request", entityId: id, summary: `${issued.count} points reward(s) issued with ${req.number}` })
+        // Event prizes (winners, runners-up…) carried by it are handed over too.
+        const prizes = await tx.eventAward.updateMany({ where: { line: { is: { requestId: id } } }, data: { status: "ISSUED", issuedAt: new Date(), issuedById: user.id } })
+        if (prizes.count) await audit(tx, { actorId: user.id, action: "AWARD.ISSUED", entity: "Request", entityId: id, summary: `${prizes.count} event prize(s) issued with ${req.number}` })
       }
       await audit(tx, { actorId: user.id, action: "REQUEST.APPROVE", entity: "Request", entityId: id, summary: `Final approval of ${req.number}; stock updated` })
       return { final: true, level }
@@ -326,6 +329,15 @@ export function isOverdue(submittedAt: Date | null, hours: number) {
  * (draft deleted, or lines removed), so they can be handed out later.
  */
 export async function releaseRewards(tx: Tx, where: { requestId: string; lineIds?: string[] }) {
+  // Event prizes on those lines go back to pending as well.
+  const prizeLines = await tx.distributionLine.findMany({
+    where: { requestId: where.requestId, awardId: { not: null }, ...(where.lineIds ? { id: { in: where.lineIds } } : {}) },
+    select: { id: true, awardId: true },
+  })
+  if (prizeLines.length) {
+    await tx.distributionLine.updateMany({ where: { id: { in: prizeLines.map((l) => l.id) } }, data: { awardId: null } })
+    await tx.eventAward.updateMany({ where: { id: { in: prizeLines.map((l) => l.awardId!) }, status: "IN_APPROVAL" }, data: { status: "PENDING", requestId: null } })
+  }
   const lines = await tx.distributionLine.findMany({
     where: { requestId: where.requestId, rewardId: { not: null }, ...(where.lineIds ? { id: { in: where.lineIds } } : {}) },
     select: { id: true, rewardId: true },

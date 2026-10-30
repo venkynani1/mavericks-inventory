@@ -13,6 +13,7 @@ import { SearchFilter, Segmented, SelectFilter } from "@/components/app/filters"
 import { Pager } from "@/components/app/pager"
 import { CategoryBadge, CATEGORY_LABEL, EventStatusBadge, Kpi } from "@/components/app/rewards-display"
 import { EventDialog } from "@/components/app/rewards-forms"
+import { EventsUpload } from "@/components/app/prize-forms"
 
 export const metadata: Metadata = { title: "Events" }
 const PAGE = 30
@@ -53,7 +54,14 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       <PageHeader
         title="Events"
         description="Tech talks, workshops, hackathons and celebrations. Marking someone present credits the event's points to them straight away."
-        actions={canOperate && <EventDialog types={types.map((t) => ({ id: t.id, name: t.name, category: t.category, points: t.points }))} />}
+        actions={
+          canOperate && (
+            <>
+              <EventsUpload />
+              <EventDialog types={types.map((t) => ({ id: t.id, name: t.name, category: t.category, points: t.points }))} />
+            </>
+          )
+        }
       />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Upcoming" value={fmtNum(s.upcoming)} icon={<CalendarClockIcon />} href="/events?view=upcoming" />

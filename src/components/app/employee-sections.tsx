@@ -1,12 +1,13 @@
 import Link from "next/link"
-import { CalendarDaysIcon, GiftIcon, HistoryIcon, PackageIcon } from "lucide-react"
+import { CalendarDaysIcon, GiftIcon, HistoryIcon, MedalIcon, PackageIcon, TicketIcon, TrophyIcon } from "lucide-react"
+import { prizeText } from "@/lib/server/awards"
 import type { EmployeeOverview } from "@/lib/server/employee-data"
 import { cn, fmtDate, fmtNum } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Panel, PanelHeader } from "./page-header"
-import { CategoryBadge, RewardStatusBadge } from "./rewards-display"
+import { AwardStatusBadge, CategoryBadge, POSITION_TONE, RewardStatusBadge } from "./rewards-display"
 
-const TX_LABEL: Record<string, string> = { EVENT: "Event", ADJUSTMENT: "Adjustment", RESET: "Reset", REVERSAL: "Reversal" }
+const TX_LABEL: Record<string, string> = { EVENT: "Event", ADJUSTMENT: "Adjustment", RESET: "Reset", REVERSAL: "Reversal", AWARD: "Prize bonus" }
 
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return <p className="px-5 py-10 text-center text-sm text-muted-foreground">{children}</p>
@@ -146,3 +147,37 @@ export function GoodiesPanel({ data, staff }: { data: EmployeeOverview; staff?: 
   )
 }
 
+
+/** Prizes won at events: position, prize and whether it has been handed over. */
+export function AwardsPanel({ data, staff, hideEmpty }: { data: EmployeeOverview; staff?: boolean; hideEmpty?: boolean }) {
+  if (hideEmpty && !data.awards.length) return null
+  return (
+    <Panel className="overflow-hidden">
+      <PanelHeader title={<span className="inline-flex items-center gap-2"><MedalIcon className="size-4 text-reward" />{staff ? "Event prizes" : "Your prizes"} ({data.awards.length})</span>} description={staff ? undefined : "Prizes you won at events"} />
+      {data.awards.length ? (
+        <ul className="divide-y">
+          {data.awards.map((a) => (
+            <li key={a.id} className="flex items-center gap-3 px-5 py-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-reward-soft text-reward">
+                {a.kind === "VOUCHER" ? <TicketIcon className="size-4" /> : a.kind === "GOODIE" ? <GiftIcon className="size-4" /> : <TrophyIcon className="size-4" />}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className={cn("inline-flex h-5 items-center rounded px-1.5 text-[11px] font-medium", POSITION_TONE(a.position))}>{a.position}</span>
+                  <span className="truncate font-medium">{prizeText(a)}</span>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {staff ? <Link href={`/events/${a.event.id}`} className="hover:text-primary">{a.event.name}</Link> : a.event.name}, {fmtDate(a.event.date)}
+                  {a.bonusPoints ? `, +${fmtNum(a.bonusPoints)} bonus points` : ""}
+                </span>
+              </div>
+              <AwardStatusBadge status={a.status} employeeView={!staff} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyRow>No prizes yet. Win at a hackathon or codeathon to see them here.</EmptyRow>
+      )}
+    </Panel>
+  )
+}

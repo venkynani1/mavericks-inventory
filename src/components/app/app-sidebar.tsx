@@ -15,6 +15,7 @@ import {
   FileClockIcon,
   GiftIcon,
   HouseIcon,
+  MedalIcon,
   PackageOpenIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -64,9 +65,10 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   system: ActivityIcon,
   me: UserRoundIcon,
   assistant: SparklesIcon,
+  prizes: MedalIcon,
 }
 
-export type NavCounts = { approvals: number; mine: number; rewardsDue: number }
+export type NavCounts = { approvals: number; mine: number; rewardsDue: number; prizesDue: number }
 
 export function AppSidebar({ role, counts }: { role: Role; counts: NavCounts }) {
   const pathname = usePathname()

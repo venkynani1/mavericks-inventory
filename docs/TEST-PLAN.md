@@ -20,9 +20,9 @@ This document says what is tested, how, and what a business user should try befo
 | --- | --- | --- | --- |
 | Static | TypeScript (`npm run typecheck`), ESLint (`npm run lint`) | No type errors, no unsafe patterns | whole codebase |
 | Unit | Vitest (`npm test`) | Points rules (cap, milestones, progress, overrides) and role permissions (who may do what, which menu each role sees) | 23 tests |
-| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, points, rewards, stock counts, the employee portal, the assistant, notifications | 62 checks |
+| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, points, rewards, stock counts, the employee portal, the assistant, notifications | 71 checks |
 | Single sign-on | Playwright + mock identity provider (`npm run sso-check`) | Code flow with PKCE, state and nonce; account creation and linking; role sync; employee role; refusals; SSO-only mode | 16 checks |
-| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 62 checks |
+| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 71 checks |
 
 ## 2. How to run the tests
 
@@ -55,6 +55,8 @@ The end-to-end suite, in order (each line is one check):
 
 **Events, points and rewards:** admin adds an employee · admin adjusts points with a reason (in history) · executive creates an event · pasting IDs marks attendance, credits points, reports unknown IDs and flags milestones · marking twice is skipped · 1,900 + 400 = 2,300 · the 2,000 reward goes onto a distribution with the milestone goodie · approval issues it · removing an attendee reverses exactly their points · admin changes event-type points · leaderboard ranks people.
 
+**Events upload, winners and prizes:** an events sheet creates upcoming events and lists bad rows · the same sheet again creates no duplicates · uploaded events show under Upcoming · a winner gets an Amazon voucher, is marked present and gets bonus points · a runner-up gets a goodie from stock · bonus points credited (1,900 + 400 + 500 = 2,800) · a voucher is marked issued with its order reference · a goodie prize goes out through an approved distribution and stock drops by 1 · the employee sees their prizes.
+
 **Stock count and movements:** a count sends only the difference for approval · approval adjusts stock by the difference · the adjustment appears in stock movements · system status shows regions and latency.
 
 **Employee portal and assistant:** one click signs in as the demo employee · employees can't open staff pages · the assistant answers an employee about their own points only · the assistant answers an executive from live stock data · the notification bell lists what needs attention.
@@ -76,6 +78,8 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | 7 | Same sheet uploaded twice | Executive | Upload scenario 6's sheet again | 0 added, 120 "already marked"; nobody's points doubled |
 | 8 | Wrong person marked present | Executive | Remove them with a reason | Their 600 points reversed; reason in their history; a due reward below their new total is cancelled |
 | 9 | Monthly reward handout | Executive, Manager | Rewards → Due → select 25 people → Create distribution and submit → approve | One request with 25 lines; rewards Issued; goodies off the shelf; employees see "Received" |
+| 9a | Hackathon results | Executive, Manager | On the event, add Winner (Amazon ₹5,000), Runner-up (smart watch), Special mention (certificate). Hand the watch out from Event prizes; mark the voucher issued with the Amazon order number | Bonus points credited; watch leaves stock after approval; voucher shows Issued with the reference; finance export lists all three |
+| 9b | Next quarter's events | Executive | Upload an events sheet with 15 events, one with a misspelt type | 14 created and listed under Upcoming; the bad row named; a second upload creates nothing |
 | 10 | Goodie for 18,000 not decided yet | Executive | Select someone due at 18,000 | Row asks to choose a goodie; can't submit until chosen |
 | 11 | Admin changes workshop points from 400 to 450 | Administrator | Edit the event type | New attendance gets 450; past attendance unchanged; change in the audit log |
 | 12 | Special recognition | Administrator | Adjust +500 points for an organiser with a reason | Balance and history updated; reward created if a milestone is crossed |

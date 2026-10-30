@@ -28,6 +28,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 - **Home:** a worklist of what needs you (overdue approvals, returned requests, low stock, rewards due), number tiles with trends (on hand, reserved, free to promise, handed out, low or out, event points), engagement snapshot, charts, items to restock and size runs.
 - **Inventory like large stores teams run it:** on hand, reserved and free-to-promise per item, days of cover, a stock movements ledger, and cycle counts whose differences go through approval.
 - **Engagement:** events (tech, non-tech, workshops, hackathons, codeathons…) with points per type set by the administrator; attendance by pasting IDs or uploading a sheet; points credited instantly; a reward at every 2,000 points up to 20,000; rewards handed out through a normal approved distribution; adjust and reset with reasons; a leaderboard.
+- **Winners and prizes:** record winners, runners-up and top performers at events with an Amazon voucher, a goodie from stock or another prize, plus bonus points; hand them out from one worklist and export the list for finance. Plan events in bulk by uploading an Excel sheet.
 - **Employee portal:** each employee sees their own points, a progress track to 20,000 with a gift at every milestone, rewards, goodies received and events.
 - **Ask Mav:** an assistant in the top bar that answers questions from live data, limited to what the person's role may see. Works out of the box; uses an AI model when a key is set: free Gemini (`GEMINI_API_KEY`) or Groq (`GROQ_API_KEY`), or Claude (`ANTHROPIC_API_KEY`).
 - **One-click demo sign-in** and a 3D gift-box mascot that says hello.
@@ -68,7 +69,7 @@ With the demo data loaded (`npm run db:seed`), the sign-in page shows **Explore 
 9. As the **Executive**, open **Events → New event** (a workshop), then paste a few employee IDs (for example `2000149999`). Points are credited and anyone crossing 2,000 points appears in **Rewards**. Select them and **Create distribution and submit**; the Manager approves and the rewards show as issued.
 10. Sign in as the **Employee** (Priyanka Sharma): her points, the progress track to 20,000 and her goodies. Select **Ask Mav** and ask "How many points do I have?".
 
-The same script runs automatically as an end-to-end test (`npm run e2e`, 62 checks in a real browser; `npm test` runs 23 unit tests) on every push.
+The same script runs automatically as an end-to-end test (`npm run e2e`, 71 checks in a real browser; `npm test` runs 23 unit tests) on every push.
 
 ## Run it on your computer
 

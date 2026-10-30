@@ -11,7 +11,7 @@ import { fmtNum, initials } from "@/lib/utils"
 import { PageHeader, Panel } from "@/components/app/page-header"
 import { PointsProgress } from "@/components/app/rewards-display"
 import { AdjustPointsDialog, EmployeeDialog, ResetPointsDialog } from "@/components/app/rewards-forms"
-import { EventsAttendedPanel, GoodiesPanel, HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
+import { AwardsPanel, EventsAttendedPanel, GoodiesPanel, HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const e = await prisma.employee.findUnique({ where: { id: (await params).id }, select: { name: true } })
@@ -71,6 +71,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
         <div className="grid gap-5 xl:grid-cols-2">
           <HistoryPanel data={data} staff limit={sp.tab === "history" ? undefined : 12} />
           <div className="flex flex-col gap-5">
+            <AwardsPanel data={data} staff hideEmpty />
             <EventsAttendedPanel data={data} staff limit={10} />
             <GoodiesPanel data={data} staff />
           </div>

@@ -165,8 +165,10 @@ const TOOLS: Tool[] = [
       if (!emp) return { text: "Your account isn't linked to an employee record, so there are no goodies to show." }
       const lines = await prisma.distributionLine.findMany({ where: { recipientId: emp.empId, request: { status: "APPROVED" } }, include: { stockItem: true }, orderBy: { distributedOn: "desc" }, take: 12 })
       const pending = await prisma.rewardEarned.count({ where: { employeeId: emp.id, status: { in: ["DUE", "IN_PROGRESS"] } } })
-      if (!lines.length) return { text: `No goodies recorded yet.${pending ? ` ${pending} reward${pending > 1 ? "s are" : " is"} on the way.` : ""}` }
-      return { text: `You've received ${lines.length} goodie${lines.length > 1 ? "s" : ""}:\n${lines.map((l) => `- ${l.stockItem.name} x${l.quantity}, ${fmtDate(l.distributedOn)}${l.purpose ? ` (${l.purpose})` : ""}`).join("\n")}${pending ? `\n${pending} more reward${pending > 1 ? "s are" : " is"} on the way.` : ""}`, links: [{ label: "Goodies received", href: "/me/goodies" }] }
+      const prizes = await prisma.eventAward.findMany({ where: { employeeId: emp.id, status: { not: "CANCELLED" } }, include: { event: true, stockItem: true }, orderBy: { createdAt: "desc" }, take: 8 })
+      const prizeLines = prizes.length ? `\nEvent prizes:\n${prizes.map((a) => `- ${a.position} at ${a.event.name}: ${a.kind === "VOUCHER" ? `${a.voucherProvider ?? "Amazon"} voucher ₹${fmtNum(a.voucherAmount ?? 0)}` : a.kind === "GOODIE" ? (a.stockItem?.name ?? "goodie") : (a.description ?? "prize")} (${a.status === "ISSUED" ? "received" : "on the way"})`).join("\n")}` : ""
+      if (!lines.length) return { text: `No goodies recorded yet.${pending ? ` ${pending} reward${pending > 1 ? "s are" : " is"} on the way.` : ""}${prizeLines}` }
+      return { text: `You've received ${lines.length} goodie${lines.length > 1 ? "s" : ""}:\n${lines.map((l) => `- ${l.stockItem.name} x${l.quantity}, ${fmtDate(l.distributedOn)}${l.purpose ? ` (${l.purpose})` : ""}`).join("\n")}${pending ? `\n${pending} more reward${pending > 1 ? "s are" : " is"} on the way.` : ""}${prizeLines}`, links: [{ label: "Goodies received", href: "/me/goodies" }] }
     },
   },
   {
@@ -200,6 +202,27 @@ const TOOLS: Tool[] = [
       const inProg = await prisma.rewardEarned.count({ where: { status: "IN_PROGRESS" } })
       if (!rows.length) return { text: `No rewards are waiting to be handed out.${inProg ? ` ${inProg} are on a distribution waiting for approval.` : ""}` }
       return { text: `${rows.reduce((s, r) => s + r._count, 0)} rewards due:\n${rows.map((r) => `- ${fmtNum(r.threshold)} milestone: ${r._count}`).join("\n")}${inProg ? `\n${inProg} more are on a distribution waiting for approval.` : ""}`, links: [{ label: "Rewards worklist", href: "/rewards" }] }
+    },
+  },
+  {
+    name: "event_prizes",
+    description: "Prizes recorded at events (winners, runners-up, top performers): Amazon vouchers, goodies and other prizes, with what is still to be handed out. Optionally for one event by name.",
+    input_schema: { type: "object", properties: { event: { type: "string", description: "Part of an event name, optional" } } },
+    allowed: (r) => can(r, "rewards:view"),
+    async run(input) {
+      const ev = str(input.event)
+      const awards = await prisma.eventAward.findMany({
+        where: { status: { not: "CANCELLED" }, ...(ev ? { event: { name: { contains: ev, mode: "insensitive" as const } } } : { status: { in: ["PENDING", "IN_APPROVAL"] } }) },
+        include: { employee: true, event: true, stockItem: true },
+        orderBy: [{ event: { date: "desc" } }, { createdAt: "asc" }],
+        take: 15,
+      })
+      if (!awards.length) return { text: ev ? `No prizes recorded for an event matching "${ev}".` : "No event prizes are waiting to be handed out.", links: [{ label: "Event prizes", href: "/prizes" }] }
+      const ST = { PENDING: "to hand out", IN_APPROVAL: "in approval", ISSUED: "issued", CANCELLED: "cancelled" } as const
+      return {
+        text: `${ev ? "Prizes" : "Prizes still to hand out"}:\n${awards.map((a) => `- **${a.position}** at ${a.event.name}: ${a.employee.name} (${a.employee.empId}), ${a.kind === "VOUCHER" ? `${a.voucherProvider ?? "Amazon"} voucher ₹${fmtNum(a.voucherAmount ?? 0)}` : a.kind === "GOODIE" ? (a.stockItem?.name ?? "goodie") : (a.description ?? "prize")}, ${ST[a.status]}`).join("\n")}`,
+        links: [{ label: "Event prizes", href: "/prizes" }],
+      }
     },
   },
   {
@@ -269,7 +292,7 @@ export async function answerOffline(text: string, ctx: Ctx): Promise<ToolOut & {
   if (OFF_TOPIC.test(t)) return { text: "I can only help with Mavericks Inventory: stock, requests, events, points and rewards, within what your role can see." }
   if (/how (do|can|to)|steps|help me|guide/.test(t)) return call("how_to", { topic: t })
   if (/leader|top (\d+ )?(employees|people|scorers)|rank/.test(t)) return call("leaderboard", { top: Number(t.match(/top (\d+)/)?.[1]) || 10 })
-  if (/goodie|received|got|swag/.test(t) && (role === "EMPLOYEE" || /\bmy\b|\bi\b/.test(t))) return call("my_goodies")
+  if (/goodie|received|got|swag|prize|voucher|won/.test(t) && (role === "EMPLOYEE" || /\bmy\b|\bi\b/.test(t))) return call("my_goodies")
   if (/point|milestone|progress|balance/.test(t)) {
     const named = text.match(/(?:of|for|does|did|has)\s+([A-Z][A-Za-z.]+(?:\s+[A-Z][A-Za-z.]+)*|\d{6,})/)?.[1] ?? text.match(/\b(\d{8,})\b/)?.[1] ?? ""
     if (role === "EMPLOYEE") {
@@ -280,6 +303,7 @@ export async function answerOffline(text: string, ctx: Ctx): Promise<ToolOut & {
     if (/reward|due|pending|hand/.test(t) && can(role, "rewards:view") && !named) return call("rewards_due")
     return call("employee_points", { query: named.trim() })
   }
+  if (/prize|winner|voucher|runner/.test(t) && can(role, "rewards:view")) return call("event_prizes", { event: text.match(/(?:at|for|in)\s+(?:the\s+)?(.+?)\??$/i)?.[1] ?? "" })
   if (/reward/.test(t) && can(role, "rewards:view")) return call("rewards_due")
   if (/event|hackathon|workshop|codeathon|webinar|talk/.test(t)) return call("events", { when: /recent|last|past|previous|completed/.test(t) ? "recent" : "upcoming" })
   if (role === "EMPLOYEE") return { text: `I can tell you about your points, goodies and events. For example: "How many points do I have?"` }
@@ -296,7 +320,7 @@ export function suggestionsFor(role: Role): string[] {
   if (can(role, "request:approve")) s.push("What's waiting for my approval?")
   if (can(role, "request:create")) s.push("Which items are running low?")
   s.push("How many black t-shirts do we have?")
-  if (can(role, "rewards:view")) s.push("Rewards due")
+  if (can(role, "rewards:view")) s.push("Which event prizes are still to hand out?")
   if (can(role, "report:view")) s.push("Distributions in the last 30 days")
   if (can(role, "rewards:operate")) s.push("How do I record event attendance?")
   if (can(role, "rewards:configure")) s.push("How do I change points per event type?")

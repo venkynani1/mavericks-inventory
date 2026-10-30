@@ -35,6 +35,15 @@ export const BASE_EVENT_TYPES: { name: string; category: EventCategory; points: 
   { name: "CSR activity", category: "OTHER", points: 250, description: "Volunteering and community work" },
 ]
 
+/** Places that win prizes at events, with default bonus points. Admins change them under Points and rewards rules. */
+export const BASE_AWARD_POSITIONS: { name: string; bonusPoints: number }[] = [
+  { name: "Winner", bonusPoints: 500 },
+  { name: "Runner-up", bonusPoints: 300 },
+  { name: "Second runner-up", bonusPoints: 200 },
+  { name: "Top performer", bonusPoints: 150 },
+  { name: "Special mention", bonusPoints: 100 },
+]
+
 /** Milestone names for 2,000 … 20,000. The goodie for each is set later by an admin. */
 export const MILESTONE_TITLES = ["Starter", "Explorer", "Contributor", "Achiever", "Champion", "Trailblazer", "Innovator", "Luminary", "Legend", "Maverick"]
 
@@ -48,6 +57,7 @@ export async function ensureBaseData(prisma: PrismaClient, settings: Partial<typ
     skipDuplicates: true,
   })
   await prisma.eventType.createMany({ data: BASE_EVENT_TYPES.map((t, sortOrder) => ({ ...t, sortOrder })), skipDuplicates: true })
+  await prisma.awardPosition.createMany({ data: BASE_AWARD_POSITIONS.map((p, sortOrder) => ({ ...p, sortOrder })), skipDuplicates: true })
   const step = Number((await prisma.setting.findUnique({ where: { key: "rewardStep" } }))?.value ?? 2000)
   const cap = Number((await prisma.setting.findUnique({ where: { key: "rewardCap" } }))?.value ?? 20000)
   const milestones = []

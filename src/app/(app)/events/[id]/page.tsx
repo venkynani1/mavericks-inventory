@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeftIcon, BanIcon, CalendarIcon, MapPinIcon, UserIcon } from "lucide-react"
+import { ArrowLeftIcon, BanIcon, CalendarIcon, MapPinIcon, TrophyIcon, UserIcon } from "lucide-react"
+import { awardPositions, prizeText } from "@/lib/server/awards"
+import { AwardDialog, CancelAward } from "@/components/app/prize-forms"
 import { prisma } from "@/lib/db"
 import { can } from "@/lib/roles"
 import { setEventStatus } from "@/app/actions/rewards"
@@ -11,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PageHeader, Panel, PanelHeader } from "@/components/app/page-header"
 import { ConfirmAction } from "@/components/app/confirm-action"
-import { CategoryBadge, EventStatusBadge } from "@/components/app/rewards-display"
+import { AwardStatusBadge, CategoryBadge, EventStatusBadge, POSITION_TONE } from "@/components/app/rewards-display"
 import { AttendeesAdder, EventDialog, RemoveAttendee } from "@/components/app/rewards-forms"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -22,12 +24,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePermission("rewards:view")
   const { id } = await params
-  const [event, types] = await Promise.all([
+  const [event, types, positions, items] = await Promise.all([
     prisma.event.findUnique({
       where: { id },
-      include: { eventType: true, attendance: { include: { employee: true }, orderBy: { createdAt: "desc" } } },
+      include: {
+        eventType: true,
+        attendance: { include: { employee: true }, orderBy: { createdAt: "desc" } },
+        awards: { where: { status: { not: "CANCELLED" } }, include: { employee: true, stockItem: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
+      },
     }),
     prisma.eventType.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    awardPositions(),
+    prisma.stockItem.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, availableQty: true }, orderBy: { name: "asc" } }),
   ])
   if (!event) notFound()
   const pts = event.points ?? event.eventType.points
@@ -93,6 +101,49 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               <AttendeesAdder eventId={event.id} disabled={event.status === "CANCELLED"} />
             </Panel>
           )}
+          <Panel className="overflow-hidden">
+            <PanelHeader
+              title={<span className="inline-flex items-center gap-2"><TrophyIcon className="size-4 text-reward" />Winners and prizes</span>}
+              description="Amazon vouchers, goodies or other prizes for the top performers. Goodies go out through an approved distribution from the Prizes page."
+              actions={canOperate && event.status !== "CANCELLED" && <AwardDialog eventId={event.id} positions={positions.filter((p) => p.active).map((p) => ({ name: p.name, bonusPoints: p.bonusPoints }))} items={items} />}
+            />
+            {event.awards.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-5">Position</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Prize</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Bonus</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canOperate && <TableHead className="w-12 pr-5"><span className="sr-only">Cancel</span></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {event.awards.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="pl-5"><span className={`inline-flex h-6 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap ${POSITION_TONE(a.position)}`}>{a.position}</span></TableCell>
+                      <TableCell>
+                        <Link href={`/employees/${a.employeeId}`} className="flex flex-col hover:text-primary">
+                          <span className="font-medium">{a.employee.name}</span>
+                          <span className="num text-xs text-muted-foreground">{a.employee.empId}</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {prizeText(a)}
+                        {a.description && a.kind !== "OTHER" && <span className="block text-xs text-muted-foreground">{a.description}</span>}
+                      </TableCell>
+                      <TableCell className="num hidden text-right sm:table-cell">{a.bonusPoints ? `+${fmtNum(a.bonusPoints)}` : "—"}</TableCell>
+                      <TableCell><AwardStatusBadge status={a.status} /></TableCell>
+                      {canOperate && <TableCell className="pr-5">{a.status === "PENDING" && <CancelAward id={a.id} label={`${a.position}: ${a.employee.name}, ${prizeText(a)}`} />}</TableCell>}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No winners recorded yet.</p>
+            )}
+          </Panel>
           <Panel className="overflow-hidden">
             <PanelHeader title={`Attendees (${fmtNum(event.attendance.length)})`} actions={event.attendance.length > 0 && <Button variant="outline" size="sm" asChild><a href={`/api/reports/attendance?format=xlsx&event=${event.id}`}>Export</a></Button>} />
             {event.attendance.length ? (

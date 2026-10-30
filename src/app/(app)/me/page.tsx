@@ -11,7 +11,7 @@ import { cn, fmtDate, fmtNum } from "@/lib/utils"
 import { Panel, PanelHeader } from "@/components/app/page-header"
 import { MavHello } from "@/components/app/mav-hello"
 import { CategoryBadge, Kpi, PointsProgress } from "@/components/app/rewards-display"
-import { HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
+import { AwardsPanel, HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
 import { PortalUnlinked } from "@/components/app/portal-unlinked"
 import { AskMavButton } from "@/components/app/ask-mav-button"
 
@@ -68,6 +68,7 @@ export default async function MyDashboard() {
 
       <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
         <div className="flex min-w-0 flex-col gap-5">
+          <AwardsPanel data={data} hideEmpty />
           <RewardsPanel data={data} step={settings.rewards.step} />
           <HistoryPanel data={data} limit={8} />
         </div>

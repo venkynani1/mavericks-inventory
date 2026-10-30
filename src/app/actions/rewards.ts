@@ -6,7 +6,8 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { run } from "@/lib/server/action"
 import { audit } from "@/lib/server/audit"
-import { presentFields, readSheet, toStr } from "@/lib/server/excel"
+import { presentFields, readSheet, toDate, toInt, toStr } from "@/lib/server/excel"
+import { addAward, cancelAward, distributeAwards, EVENT_ALIASES, issueAwards, type AwardInput } from "@/lib/server/awards"
 import { adjustPoints, createRewardDistribution, nextEventCode, recordAttendance, removeAttendance, resetPoints } from "@/lib/server/rewards"
 import { AppError, assertPermission } from "@/lib/server/session"
 import { SETTINGS_TAG } from "@/lib/server/settings"
@@ -276,4 +277,117 @@ export async function saveMilestone(id: string, input: z.input<typeof milestoneS
     revalidatePath("/admin/rewards")
     revalidatePath("/rewards")
   }, "Milestone saved. Rewards not yet handed out will use this goodie.")
+}
+
+// ---------------- event prizes (winners, runners-up…) ----------------
+
+export async function addEventAward(eventId: string, input: AwardInput) {
+  return run(async () => {
+    const user = await assertPermission("rewards:operate")
+    const r = await addAward(eventId, input, user)
+    refresh(`/events/${eventId}`, "/prizes")
+    return { name: r.name, markedPresent: r.markedPresent, milestones: r.milestones }
+  })
+}
+
+export async function cancelEventAward(id: string, reason: string) {
+  return run(async () => {
+    const user = await assertPermission("rewards:operate")
+    await cancelAward(id, reason, user)
+    refresh("/prizes")
+  }, "Prize cancelled. Any bonus points were taken back.")
+}
+
+export async function distributeEventAwards(ids: string[], submit: boolean) {
+  return run(async () => {
+    const user = await assertPermission("rewards:operate")
+    const req = await distributeAwards(ids, { submit }, user)
+    refresh("/prizes", "/requests", "/approvals", "/distributions")
+    return { id: req.id, number: req.number }
+  })
+}
+
+export async function issueEventAwards(ids: string[], reference: string) {
+  return run(async () => {
+    const user = await assertPermission("rewards:operate")
+    const n = await issueAwards(ids, reference, user)
+    refresh("/prizes")
+    return { count: n }
+  })
+}
+
+const positionSchema = z.object({
+  name: z.string().trim().min(2, "Enter a name").max(60),
+  bonusPoints: z.coerce.number().int("Whole points only").min(0, "Can't be negative").max(5000, "Keep it under 5,000"),
+  active: z.boolean(),
+})
+
+export async function saveAwardPosition(id: string | null, input: z.input<typeof positionSchema>) {
+  return run(async () => {
+    const admin = await assertPermission("rewards:configure")
+    const v = parse(positionSchema, input)
+    const p = id ? await prisma.awardPosition.update({ where: { id }, data: v }) : await prisma.awardPosition.create({ data: { ...v, sortOrder: 100 } })
+    await audit(prisma, { actorId: admin.id, action: id ? "AWARD_POSITION.UPDATE" : "AWARD_POSITION.CREATE", entity: "AwardPosition", entityId: p.id, summary: `${p.name}: ${p.bonusPoints} bonus points${p.active ? "" : " (retired)"}` })
+    revalidatePath("/admin/rewards")
+  }, "Saved. New prizes use these bonus points.")
+}
+
+// ---------------- events from Excel ----------------
+
+export type EventUploadResult = { created: number; duplicates: number; rows: number; errors: { row: number; message: string }[]; upcoming: number }
+
+export async function uploadEvents(form: FormData) {
+  return run(async (): Promise<EventUploadResult> => {
+    const user = await assertPermission("rewards:operate")
+    const file = form.get("file")
+    if (!(file instanceof File) || !file.size) throw new AppError("Choose an Excel file (.xlsx).")
+    if (file.size > 10 * 1024 * 1024) throw new AppError("That file is larger than 10 MB.")
+    if (!/\.xlsx$/i.test(file.name)) throw new AppError("Save the sheet as .xlsx and upload it again.")
+    const sheet = await readSheet(await file.arrayBuffer(), EVENT_ALIASES, [/event/i])
+    const present = presentFields(sheet, EVENT_ALIASES)
+    for (const need of ["name", "type", "date"]) if (!present.has(need)) throw new AppError(`The sheet needs columns for Event name, Event type and Date. "${{ name: "Event name", type: "Event type", date: "Date" }[need]}" is missing.`)
+    if (sheet.rows.length > 2000) throw new AppError("Upload up to 2,000 events at a time.")
+    const types = await prisma.eventType.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } })
+    const CATEGORY: Record<string, string> = { tech: "TECH", technical: "TECH", "non-tech": "NON_TECH", "non tech": "NON_TECH", nontech: "NON_TECH", workshop: "WORKSHOP", hackathon: "HACKATHON", codeathon: "CODEATHON", "code-a-thon": "CODEATHON", other: "OTHER" }
+    const findType = (raw: string) => {
+      const t = raw.trim().toLowerCase()
+      return types.find((x) => x.name.toLowerCase() === t) ?? types.find((x) => x.category === CATEGORY[t]) ?? types.find((x) => t.includes(x.name.toLowerCase()))
+    }
+    const errors: EventUploadResult["errors"] = []
+    const good: { name: string; eventTypeId: string; date: Date; location: string | null; organizer: string | null; points: number | null; description: string | null }[] = []
+    for (const r of sheet.rows) {
+      const name = toStr(r.values.name)
+      const typeRaw = toStr(r.values.type)
+      const d = toDate(r.values.date)
+      const pts = r.values.points === null || r.values.points === undefined ? null : toInt(r.values.points)
+      if (!name || name.length < 3) { errors.push({ row: r.rowNumber, message: "Event name is missing" }); continue }
+      const type = typeRaw ? findType(typeRaw) : undefined
+      if (!type) { errors.push({ row: r.rowNumber, message: `Event type "${typeRaw ?? ""}" isn't one of: ${types.map((t) => t.name).join(", ")}` }); continue }
+      if (!d || d === "invalid") { errors.push({ row: r.rowNumber, message: "Date is missing or not a date (use dd-mm-yyyy)" }); continue }
+      if (pts !== null && (Number.isNaN(pts) || pts < 0 || pts > 5000)) { errors.push({ row: r.rowNumber, message: "Points must be a whole number from 0 to 5,000" }); continue }
+      const date = new Date(`${d.toISOString().slice(0, 10)}T10:00:00+05:30`)
+      good.push({ name: name.slice(0, 140), eventTypeId: type.id, date, location: toStr(r.values.location)?.slice(0, 80) ?? null, organizer: toStr(r.values.organizer)?.slice(0, 80) ?? null, points: pts, description: toStr(r.values.description)?.slice(0, 1000) ?? null })
+    }
+    let created = 0
+    let duplicates = 0
+    let upcoming = 0
+    const today = new Date(Date.now() - 86400_000)
+    await prisma.$transaction(
+      async (tx) => {
+        for (const e of good) {
+          const dayStart = new Date(e.date.getTime() - 12 * 3600_000)
+          const dayEnd = new Date(e.date.getTime() + 12 * 3600_000)
+          const exists = await tx.event.findFirst({ where: { name: { equals: e.name, mode: "insensitive" }, date: { gte: dayStart, lte: dayEnd } }, select: { id: true } })
+          if (exists) { duplicates++; continue }
+          await tx.event.create({ data: { ...e, code: await nextEventCode(tx), status: "PLANNED", createdById: user.id } })
+          created++
+          if (e.date >= today) upcoming++
+        }
+        await audit(tx, { actorId: user.id, action: "EVENT.UPLOAD", entity: "Event", summary: `Uploaded ${file.name}: ${created} event(s) created, ${duplicates} already there, ${errors.length} row(s) with problems` })
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    )
+    refresh()
+    return { created, duplicates, rows: sheet.rows.length, errors, upcoming }
+  })
 }

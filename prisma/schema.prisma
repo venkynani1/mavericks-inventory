@@ -138,6 +138,7 @@ model StockItem {
   countLines        StockCountLine[]
   ledger            LedgerEntry[]
   milestones        RewardMilestone[]
+  awards            EventAward[]
 
   @@index([status])
   @@index([product])
@@ -192,6 +193,9 @@ model DistributionLine {
   /// Set when this handover fulfils a points milestone reward.
   rewardId      String?       @unique
   reward        RewardEarned? @relation(fields: [rewardId], references: [id])
+  /// Set when this handover is an event prize (winner, runner-up…).
+  awardId       String?       @unique
+  award         EventAward?   @relation(fields: [awardId], references: [id])
   createdAt     DateTime      @default(now())
 
   @@index([stockItemId])
@@ -335,6 +339,7 @@ model Employee {
   attendance   Attendance[]
   transactions PointsTransaction[]
   rewards      RewardEarned[]
+  awards       EventAward[]
 
   @@index([points])
   @@index([name])
@@ -387,6 +392,7 @@ model Event {
   updatedAt    DateTime            @updatedAt
   attendance   Attendance[]
   transactions PointsTransaction[]
+  awards       EventAward[]
 
   @@index([date])
 }
@@ -410,6 +416,62 @@ enum PointsType {
   ADJUSTMENT
   RESET
   REVERSAL
+  AWARD // bonus points for a podium place or prize at an event
+}
+
+enum PrizeKind {
+  GOODIE // a stock item, handed out through an approved distribution
+  VOUCHER // e.g. an Amazon gift voucher of a set amount
+  OTHER // trophy, certificate, experience…
+}
+
+enum AwardStatus {
+  PENDING // prize decided, not handed over yet
+  IN_APPROVAL // goodie on a distribution waiting for approval
+  ISSUED
+  CANCELLED
+}
+
+/// Places that can win prizes at an event, with the bonus points each gives by default (admin-managed).
+model AwardPosition {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  bonusPoints Int      @default(0)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+/// A prize given to one employee at one event.
+model EventAward {
+  id              String            @id @default(cuid())
+  eventId         String
+  event           Event             @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  employeeId      String
+  employee        Employee          @relation(fields: [employeeId], references: [id])
+  position        String // Winner, Runner-up, …
+  kind            PrizeKind
+  stockItemId     String?
+  stockItem       StockItem?        @relation(fields: [stockItemId], references: [id])
+  quantity        Int               @default(1)
+  voucherProvider String?
+  voucherAmount   Int? // rupees
+  /// Reference recorded when a voucher is sent (order or card number); shown masked.
+  voucherRef      String?
+  description     String? // what an OTHER prize is, or a note
+  bonusPoints     Int               @default(0)
+  status          AwardStatus       @default(PENDING)
+  requestId       String?
+  issuedAt        DateTime?
+  issuedById      String?
+  createdById     String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  line            DistributionLine?
+
+  @@index([eventId])
+  @@index([employeeId])
+  @@index([status])
 }
 
 /// Points ledger — rows are only ever inserted.

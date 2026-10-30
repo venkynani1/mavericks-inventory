@@ -109,6 +109,14 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             <SearchFilter placeholder="Employee name or ID…" />
           </>
         )}
+        {key === "prizes" && (
+          <>
+            <SelectFilter param="status" label="Status" allLabel="Any status" options={[{ value: "PENDING", label: "To hand out" }, { value: "IN_APPROVAL", label: "In approval" }, { value: "ISSUED", label: "Issued" }, { value: "CANCELLED", label: "Cancelled" }]} />
+            <DateFilter param="from" label="Events from" />
+            <DateFilter param="to" label="To" />
+            <SearchFilter placeholder="Employee or event…" />
+          </>
+        )}
         {key === "ledger" && (
           <>
             <DateFilter param="from" label="From" />

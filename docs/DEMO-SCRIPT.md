@@ -87,10 +87,13 @@ How points work: each event type is worth a fixed number of points that the admi
 3. Under **Mark attendance**, paste `2000149999, 2000150001, 9999999990` and select **Mark 3 present**. The result shows: 2 marked (+400 each), 1 ID not found, and anyone who **crossed a milestone**. **Say:** "You can also upload the attendance sheet from Teams or the registration form; new names are added automatically."
 4. Paste the same IDs again: they're skipped as **already marked**. No one gets points twice.
 5. Open **Employees and points**, then Priyanka Sharma (2000149999): current points, rank, the progress track with a gift at every 2,000, her rewards and points history with the workshop at the top.
-6. Open **Rewards** (the menu badge counts rewards due). Tick a few people, including Priyanka, and select **Create distribution and submit**. The milestone's goodie is filled in for each person.
-7. As **Manager**, approve that request. Back in **Rewards**, the **Issued** tab now lists them, and the goodies are off the shelf.
+6. Open **Milestone rewards** (the menu badge counts rewards due). Tick a few people, including Priyanka, and select **Create distribution and submit**. The milestone's goodie is filled in for each person.
+7. As **Manager**, approve that request. Back in **Milestone rewards**, the **Issued** tab now lists them, and the goodies are off the shelf.
 8. Optional: on the event page, remove someone with the minus button and a reason. Exactly their 400 points are reversed.
 9. **Leaderboard:** podium, last 90 days, by department. **Say:** "Good for recognising people at town halls."
+10. **Plan events from Excel:** on **Events**, select **Upload events**, then **Template**. Upload the filled sheet: future events land under **Upcoming**, bad rows are listed, and uploading the same sheet again creates no duplicates.
+11. **Winners and prizes:** open **Hackathon: Agentic AI**. Under **Winners and prizes** the demo already has a winner (Amazon voucher ₹5,000), a runner-up (smart watch) and others. Select **Add winner**: employee ID, position **Winner**, prize **Voucher** ₹5,000. The 500 bonus points are filled in from the position. **Say:** "Prizes can be Amazon vouchers, goodies from stock, or anything else like a trophy."
+12. **Event prizes** (menu): **Goodies to hand out**, tick them, **Create distribution and submit**; the manager approves and stock drops. **Vouchers and other**, tick them, **Mark issued** with the Amazon order number. **Export for finance** gives the full list.
 
 ## Part 4, Employee: the portal
 
@@ -108,14 +111,15 @@ Point to make: every employee can see their own progress and goodies, and nothin
 Point to make: the business rules are settings the admin controls, not code, and every change is traceable.
 
 1. Sign in as **Administrator**. Open **Points and rewards rules**.
-2. **Points per event type:** edit Workshop from 400 to 450 and save. **Say:** "New attendance gets 450; points already given don't change." (Set it back to 400 afterwards.)
-3. **Milestone goodies:** edit the 18,000 milestone and choose a goodie, or leave it "to be decided" for executives to pick per person.
-4. **Milestones:** "a goodie every 2,000 points, maximum 20,000", and the switch for showing the top 10 to employees. **Start a new programme year** resets everyone to zero (type RESET to confirm); earned rewards are kept. Don't press it in the demo.
-5. **Employees and points**, open a person: **Adjust points** (+500, reason "Organised Mavericks Week") and **Reset points**. Both need a reason and appear in their history.
-6. **Approval rules:** one or two levels, the 100-unit threshold for level 2, the stock guard and the 48-hour overdue time.
-7. **Users and roles:** add a user; they get a one-time password and must change it on first sign-in. With company single sign-on, roles come from Microsoft Entra ID instead.
-8. **Audit log:** every sign-in, change and decision with before and after values. Show the points change you just made.
-9. **System status:** where the app and database run and how fast they talk. **Say:** "If anyone says it's slow, this page says why and how to fix it."
+2. **Prize positions:** Winner 500, Runner-up 300 bonus points and so on; add one such as "Best design".
+3. **Points per event type:** edit Workshop from 400 to 450 and save. **Say:** "New attendance gets 450; points already given don't change." (Set it back to 400 afterwards.)
+4. **Milestone goodies:** edit the 18,000 milestone and choose a goodie, or leave it "to be decided" for executives to pick per person.
+5. **Milestones:** "a goodie every 2,000 points, maximum 20,000", and the switch for showing the top 10 to employees. **Start a new programme year** resets everyone to zero (type RESET to confirm); earned rewards are kept. Don't press it in the demo.
+6. **Employees and points**, open a person: **Adjust points** (+500, reason "Organised Mavericks Week") and **Reset points**. Both need a reason and appear in their history.
+7. **Approval rules:** one or two levels, the 100-unit threshold for level 2, the stock guard and the 48-hour overdue time.
+8. **Users and roles:** add a user; they get a one-time password and must change it on first sign-in. With company single sign-on, roles come from Microsoft Entra ID instead.
+9. **Audit log:** every sign-in, change and decision with before and after values. Show the points change you just made.
+10. **System status:** where the app and database run and how fast they talk. **Say:** "If anyone says it's slow, this page says why and how to fix it."
 
 ## Ask Mav: questions to try for each role
 
@@ -126,6 +130,7 @@ Ask Mav (top bar) answers from live data and only within the role signed in. Sho
 | Executive | "Which items are running low?" | Items at or below reorder level, with a link to plan stock inward |
 | Executive | "How many black t-shirts do we have?" | On hand, reserved and free to promise per size |
 | Executive | "How do I record event attendance?" | Step-by-step help for that role |
+| Executive | "Which event prizes are still to hand out?" | Winners waiting for vouchers or goodies |
 | Manager | "What's waiting for my approval?" | Requests waiting, their age, overdue flag |
 | Manager | "Distributions in the last 30 days" | Units handed out, top items and purposes |
 | Administrator | "How many points does 2000149999 have?" | That employee's points, next milestone and rewards |
@@ -137,6 +142,7 @@ Ask Mav (top bar) answers from live data and only within the role signed in. Sho
 
 - **What if someone is marked present by mistake?** The executive removes them with a reason; exactly those points are reversed, and an unclaimed reward below the new total is cancelled.
 - **What happens at 20,000 points?** Points stop at the cap. The admin can reset the person (or everyone) to start a new cycle; earned rewards stay.
+- **How are hackathon winners rewarded?** On the event page the executive records each winner, their position and prize: an Amazon voucher (amount), a goodie from stock, or something else. Positions give bonus points set by the admin. Goodies go out with approval; vouchers are marked issued with the order number and exported for finance.
 - **Who decides the goodie for each milestone?** The admin, per milestone, and can change it any time. If none is set, the executive picks one per person when handing out.
 - **Can a manager approve their own request?** No. And on large requests, level 1 and level 2 must be different people.
 - **Can stock go negative?** No. It's checked on submit and again at approval, so two approvals at the same moment can't hand out the same units.

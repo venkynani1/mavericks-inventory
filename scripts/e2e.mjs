@@ -595,6 +595,82 @@ try {
   ok("leaderboard ranks employees")
 
   // ------------------------------------------------------------------
+  step("Upload events from Excel, winners and prizes")
+  {
+    const fmt = (days) => { const d = new Date(Date.now() + days * 86400_000); return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}` }
+    const evFile = join(tmpdir(), `events-${Date.now()}.xlsx`)
+    const upName = tag("Tech talk: Platform engineering")
+    await writeXlsx(evFile, "Events", [
+      ["Event name", "Event type", "Date", "Location", "Organiser", "Points"],
+      [upName, "Tech talk", fmt(12), "Chennai", "Kavin Raj", ""],
+      [tag("Hackathon: Smart campus"), "hackathon", fmt(30), "Pune", "Divya Menon", 800],
+      [tag("Mystery event"), "Quiz night", fmt(5), "Chennai", "", ""],
+    ])
+    await go(exec, "/events")
+    await exec.getByRole("button", { name: "Upload events" }).click()
+    await dialog(exec).locator("input[type=file]").setInputFiles(evFile)
+    await dialog(exec).getByText("2 events created").waitFor({ timeout: 60_000 })
+    assert.match(await dialog(exec).innerText(), /Row 4: Event type "Quiz night"/)
+    await shot(exec, "52-events-upload")
+    ok("an events sheet creates upcoming events and lists rows it couldn't use")
+    await dialog(exec).locator("input[type=file]").setInputFiles(evFile)
+    await dialog(exec).getByText("0 events created").waitFor({ timeout: 60_000 })
+    assert.match(await dialog(exec).innerText(), /2 were already there/)
+    ok("uploading the same sheet again doesn't duplicate events")
+    await dialog(exec).getByRole("button", { name: "Done" }).click()
+    await go(exec, "/events?view=upcoming")
+    await exec.getByText(upName).waitFor()
+    ok("uploaded events show under Upcoming")
+
+    // Winners at the workshop created above.
+    await go(exec, eventPath)
+    await exec.getByRole("button", { name: "Add winner" }).click()
+    await dialog(exec).locator("#aw-emp").fill(empId)
+    await dialog(exec).locator("#aw-amt").fill("5000")
+    await shot(exec, "53-add-winner")
+    await dialog(exec).getByRole("button", { name: "Save winner" }).click()
+    await exec.getByText(/Winner: .*also marked present/).first().waitFor({ timeout: 60_000 })
+    ok("a winner gets an Amazon voucher prize, is marked present again and gets bonus points")
+    await exec.getByRole("button", { name: "Add winner" }).click()
+    await dialog(exec).locator("#aw-emp").fill("2000149999")
+    await dialog(exec).locator("#aw-pos").click()
+    await exec.getByRole("option", { name: "Runner-up", exact: true }).click()
+    await dialog(exec).locator("#aw-kind").click()
+    await exec.getByRole("option", { name: /Goodie from stock/ }).click()
+    await dialog(exec).locator("#aw-item").click()
+    await exec.getByRole("option", { name: /Bluetooth Speaker/ }).first().click()
+    await dialog(exec).getByRole("button", { name: "Save winner" }).click()
+    await dialog(exec).waitFor({ state: "detached", timeout: 60_000 })
+    await exec.getByText("Runner-up").first().waitFor()
+    await shot(exec, "54-winners")
+    ok("a runner-up gets a goodie from stock")
+    await go(admin, empPath)
+    assert.ok((await admin.locator("main").innerText()).includes("2,800"), "1,900 + 400 workshop + 500 winner bonus")
+    ok("bonus points for the win are credited (1,900 + 400 + 500 = 2,800)")
+
+    await go(exec, `/prizes?view=vouchers&q=${empId}`)
+    await exec.getByRole("checkbox", { name: `Select ${empName}` }).click()
+    await exec.getByRole("button", { name: "Mark issued" }).click()
+    await dialog(exec).locator("#iss-ref").fill("Amazon order 403-0000000-0000001")
+    await shot(exec, "55-mark-voucher-issued")
+    await dialog(exec).getByRole("button", { name: "Mark issued" }).click()
+    await exec.getByText("1 marked issued").waitFor()
+    ok("a voucher is marked issued with its order reference")
+
+    const speakerPrize = await availableOn(exec, speakerId)
+    await go(exec, `/prizes?q=2000149999`)
+    await shot(exec, "56-prizes")
+    await exec.getByRole("checkbox", { name: /Select Priyanka Sharma/ }).first().click()
+    await Promise.all([exec.waitForURL(/\/requests\//, { timeout: 60_000 }), exec.getByRole("button", { name: "Create distribution and submit" }).click()])
+    const prizeReq = new URL(exec.url()).pathname
+    await approveFully(prizeReq)
+    assert.equal(await availableOn(exec, speakerId), speakerPrize - 1)
+    await go(exec, `/prizes?view=issued&q=2000149999`)
+    await exec.getByText("Bluetooth Speaker").first().waitFor()
+    ok("a goodie prize goes out through an approved distribution and stock drops by 1")
+  }
+
+  // ------------------------------------------------------------------
   step("Stock count and movements")
   const speakerNow = await availableOn(exec, speakerId)
   await go(exec, "/counts/new")
@@ -634,6 +710,8 @@ try {
     ok("an employee can't open staff pages")
     await go(emp, "/me/goodies")
     await emp.getByText("Goodies received").first().waitFor()
+    await emp.getByText("Your prizes").waitFor()
+    ok("the employee sees the prizes they won")
     await shot(emp, "49-employee-goodies")
     await emp.getByRole("button", { name: "Open the assistant" }).first().click()
     await emp.getByRole("button", { name: "How many points do I have?" }).click()

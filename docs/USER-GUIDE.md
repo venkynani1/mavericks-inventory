@@ -15,7 +15,7 @@ This guide walks through every screen and button. You don't need any technical k
 - [Finding your way around](#finding-your-way-around)
 - [Ask Mav, the assistant](#ask-mav-the-assistant)
 - [For Executives](#for-executives): [look up items](#look-up-items) · [record a distribution](#record-a-distribution) · [upload a distribution sheet](#upload-a-distribution-sheet) · [add new items](#add-new-stock-items) · [upload a stock sheet](#upload-a-stock-sheet) · [record stock inward](#record-stock-inward) · [count stock](#count-stock) · [stock movements](#stock-movements) · [drafts and returned requests](#drafts-and-returned-requests)
-- [Events, points and rewards](#events-points-and-rewards): [how points work](#how-points-work) · [create an event](#create-an-event) · [mark attendance](#mark-attendance) · [hand out rewards](#hand-out-rewards) · [employees and points](#employees-and-points) · [leaderboard](#leaderboard)
+- [Events, points and rewards](#events-points-and-rewards): [how points work](#how-points-work) · [create an event](#create-an-event) · [upload events from Excel](#upload-events-from-excel) · [mark attendance](#mark-attendance) · [winners and prizes](#winners-and-prizes) · [hand out rewards](#hand-out-rewards) · [employees and points](#employees-and-points) · [leaderboard](#leaderboard)
 - [For Managers and the Management Authority](#for-managers-and-the-management-authority): [the approval queue](#the-approval-queue) · [approve](#approve-a-request) · [return with remarks](#return-a-request) · [two-level approval](#two-level-approval) · [approve several at once](#approve-several-at-once)
 - [Reports](#reports)
 - [For System Administrators](#for-system-administrators): [users](#add-and-manage-users) · [approval rules](#approval-rules) · [points and rewards rules](#points-and-rewards-rules) · [adjust or reset points](#adjust-or-reset-points) · [master data](#master-data) · [audit log](#audit-log) · [system status](#system-status)
@@ -115,7 +115,7 @@ All demo accounts use the password `Mavericks@2026` if you prefer to type it (op
 The screen has three parts, like most large business systems:
 
 - **The dark bar at the top** is always there: the menu button, the search box, **Ask Mav** (the assistant), the **bell** (things that need your attention), the light/dark switch and your name.
-- **The menu on the left** is grouped by kind of work: **Inventory** (items, stock movements, stock inward, stock counts), **Fulfilment** (distributions, requests, approvals), **Engagement** (events, employees and points, rewards, leaderboard), **Analytics** (reports) and **Administration**. What you see depends on your role. The menu button at the top left folds it to icons.
+- **The menu on the left** is grouped by kind of work: **Inventory** (items, stock movements, stock inward, stock counts), **Fulfilment** (distributions, requests, approvals), **Engagement** (events, employees and points, milestone rewards, event prizes, leaderboard), **Analytics** (reports) and **Administration**. What you see depends on your role. The menu button at the top left folds it to icons.
 - **The page** in the middle.
 
 **Home** is the first page after sign-in:
@@ -329,6 +329,24 @@ Select **Events → New event**.
 
 The events list shows tabs for **Upcoming**, **Completed** and **Cancelled**, and the numbers for the last 90 days at the top. You can't change an event's points once attendance is recorded; remove the attendees first, or adjust points per person.
 
+### Upload events from Excel
+
+To plan a quarter at once, select **Events → Upload events**, then **Template** for an example sheet. Fill one row per event:
+
+| Column | Required | Example |
+| --- | --- | --- |
+| Event name | Yes | Tech talk: Observability with OpenTelemetry |
+| Event type | Yes | Tech talk (or one of the other types; "hackathon", "workshop", "tech" and "non-tech" also work) |
+| Date | Yes | 12-11-2026 |
+| Location | No | Chennai |
+| Organiser | No | Kavin Raj |
+| Points | No | Leave empty to use the type's points, or enter a number to override |
+| Description | No | Any notes |
+
+Select **Choose the Excel file**. The result says how many events were created and how many are upcoming. Rows it couldn't use are listed with the reason (for example an event type that doesn't exist). An event already in the list with the same name and date is skipped, so uploading the same sheet twice is safe. Future events appear under the **Upcoming** tab, on Home and in employees' portals.
+
+![Upload events](screenshots/52-events-upload.png)
+
 ### Mark attendance
 
 On the event's page, under **Mark attendance**:
@@ -342,9 +360,39 @@ The result tells you how many were marked present and the points each got, who w
 
 Marked someone by mistake? Select the **minus** button on their row, give a reason, and select **Remove and reverse points**. Exactly the points they got for that event are taken back.
 
+### Winners and prizes
+
+At hackathons, codeathons and contests, record the winners and what they get. Open the event, then **Winners and prizes → Add winner**:
+
+1. Enter the winner's **employee ID** and choose the **position**: Winner, Runner-up, Second runner-up, Top performer or Special mention (the administrator can add more).
+2. Choose the **prize**:
+    - **Voucher (Amazon or other):** enter the amount in rupees.
+    - **Goodie from stock:** choose the item and quantity.
+    - **Other:** a trophy, certificate or anything else; describe it.
+3. **Bonus points** are filled in from the position (for example 500 for a winner); change them or set 0.
+4. Select **Save winner**. If the person wasn't marked present, they are marked present now and get the event's points too.
+
+![Add a winner](screenshots/53-add-winner.png)
+
+![Winners on an event](screenshots/54-winners.png)
+
+To cancel a prize that hasn't been handed over, select the cross on its row and give a reason; its bonus points are taken back.
+
+**Handing prizes over: Event prizes** (menu, Engagement; the number shows prizes still to hand out):
+
+- **Goodies to hand out:** tick the people and select **Create distribution and submit**. When the manager approves it, the goodies leave the shelf and the prizes show as issued.
+- **Vouchers and other:** when you've sent the vouchers, tick them and select **Mark issued**, then type the **order or reference number** (for example the Amazon order number). Never type the voucher code itself. The reference, your name and the time are kept.
+- **Export for finance** downloads every prize with the employee, event, voucher amount, status and reference.
+
+![Event prizes](screenshots/56-prizes.png)
+
+![Mark vouchers issued](screenshots/55-mark-voucher-issued.png)
+
+Employees see their prizes in their portal under **Your prizes**, as "On the way" and then "Received".
+
 ### Hand out rewards
 
-Select **Rewards** (the number in the menu is how many are due).
+Select **Milestone rewards** (the number in the menu is how many are due).
 
 ![Rewards worklist](screenshots/42-rewards-worklist.png)
 
@@ -440,6 +488,7 @@ Select **Reports**. Every report reads from approved records only, so it matches
 | **Employee points** | Every employee's current and lifetime points, cycle, events attended and rewards | Employee name or ID |
 | **Event attendance** | Who attended which event and the points they got | Dates, employee |
 | **Points rewards** | Milestone rewards with their status, the goodie and the request that carried it | Status, dates, employee |
+| **Event prizes** | Winners and top performers, their prize, voucher amount, status and reference: the list finance needs | Status, event dates, employee or event |
 
 ![Current stock availability](screenshots/22-report-availability.png)
 
@@ -496,6 +545,7 @@ Select **Points and rewards rules** (under Administration).
 
 - **Points per event type:** select the pencil on a row to change its points, category or description, or to retire it (it stays on old events). **Add event type** creates a new kind of event. New points apply to attendance recorded from then on; points already given don't change.
 - **Milestone goodies:** select the pencil to give a milestone a title and choose its goodie and quantity, or leave it "to be decided". The **Due now** column shows how many people are waiting for that milestone, and the stock count turns red when there isn't enough.
+- **Prize positions:** the places that win prizes at events (Winner, Runner-up…) and the bonus points each gives by default. Add positions such as "Best design", change the points, or retire one.
 - **Milestones:** "A goodie every 2,000 points" and "Maximum points 20,000". Change them here; the maximum must be a multiple of the step. The switch decides whether employees see the top-10 leaderboard in their portal.
 - **Start a new programme year:** resets everyone's points to zero (type RESET to confirm). Rewards already earned are kept, and the reset is in everyone's points history.
 
@@ -603,3 +653,9 @@ On the event page, select the minus button on their row and give a reason. Their
 
 **The app feels slow.**
 Ask an administrator to open **System status**. It shows the database round trip and, if the app and database are in different regions, exactly how to fix it.
+
+**How do I give an Amazon voucher to a hackathon winner?**
+Open the event, select **Add winner**, choose **Voucher**, enter the amount and save. When you've bought and sent it, go to **Event prizes → Vouchers and other**, tick it, select **Mark issued** and enter the Amazon order number.
+
+**Can I add next quarter's events in one go?**
+Yes. **Events → Upload events**, fill the template (event name, type, date) and upload it. The events appear under Upcoming.

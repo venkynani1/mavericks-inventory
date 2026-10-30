@@ -38,7 +38,7 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 - Global search (Ctrl K) across items and requests.
 - Light and dark themes, keyboard navigation, mobile layout.
 - Production start without demo accounts: the first administrator is created from a one-time bootstrap sign-in, and one-time passwords must be replaced before anything else.
-- Automated tests: 62 end-to-end checks in a real browser, 23 unit tests and 16 SSO checks, run by GitHub Actions on every push.
+- Automated tests: 71 end-to-end checks in a real browser, 23 unit tests and 16 SSO checks, run by GitHub Actions on every push.
 - Illustrated user guide and a step-by-step setup and deployment guide for Vercel, AWS, Azure and self-hosting.
 - Company single sign-on (Microsoft Entra ID / any OpenID Connect provider) with role mapping from app roles, SSO-only mode and an administrator fallback; tested against a bundled mock provider.
 - Vercel deployment that creates the database tables and optional demo data during the build, plus a GitHub workflow that runs the full test against a live site.
@@ -47,3 +47,5 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 - "Ask Mav" assistant limited to the user's role, with built-in answers or Claude.
 - Enterprise inventory views: reserved and free-to-promise stock, days of cover, stock movements ledger page, cycle counts with approval.
 - Notifications bell, system status page with region and latency diagnostics, one-click demo sign-in, 3D mascot.
+- Event winners and prizes: positions (Winner, Runner-up, Second runner-up, Top performer, Special mention; admin-configurable bonus points), prizes as Amazon or other vouchers, goodies from stock (approved distribution) or other; vouchers marked issued with an order reference; finance export; prizes in the employee portal.
+- Events planned in bulk from an Excel sheet, with validation, duplicate protection and a template.

@@ -7,12 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader, Panel, PanelHeader } from "@/components/app/page-header"
 import { CategoryBadge } from "@/components/app/rewards-display"
 import { EventTypeDialog, MilestoneDialog, ResetAllDialog, RewardRulesForm } from "@/components/app/rewards-forms"
+import { PositionDialog } from "@/components/app/prize-forms"
+import { awardPositions } from "@/lib/server/awards"
 
 export const metadata: Metadata = { title: "Points and rewards rules" }
 
 export default async function RewardRulesPage() {
   await requirePermission("rewards:configure")
-  const [settings, types, milestones, items, withPoints, dueBy] = await Promise.all([
+  const [positions, settings, types, milestones, items, withPoints, dueBy] = await Promise.all([
+    awardPositions(),
     getSettings(),
     prisma.eventType.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { name: "asc" }], include: { _count: { select: { events: true } } } }),
     prisma.rewardMilestone.findMany({ where: { active: true }, orderBy: { threshold: "asc" }, include: { stockItem: { select: { name: true, availableQty: true } } } }),
@@ -94,6 +97,18 @@ export default async function RewardRulesPage() {
           </Panel>
         </div>
         <div className="flex flex-col gap-5">
+          <Panel className="overflow-hidden">
+            <PanelHeader title="Prize positions" description="Places that win prizes at events, with their default bonus points." actions={<PositionDialog />} />
+            <ul className="divide-y">
+              {positions.map((p) => (
+                <li key={p.id} className={`flex items-center gap-3 px-5 py-2.5 text-sm ${p.active ? "" : "opacity-60"}`}>
+                  <span className="flex-1 font-medium">{p.name}{!p.active && " (retired)"}</span>
+                  <span className="num text-muted-foreground">+{fmtNum(p.bonusPoints)} pts</span>
+                  <PositionDialog position={{ id: p.id, name: p.name, bonusPoints: p.bonusPoints, active: p.active }} />
+                </li>
+              ))}
+            </ul>
+          </Panel>
           <Panel>
             <PanelHeader title="Milestones" description="Applies from the next points credited." />
             <RewardRulesForm step={settings.rewards.step} cap={settings.rewards.cap} leaderboard={settings.leaderboardForEmployees} />

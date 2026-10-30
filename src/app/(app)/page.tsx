@@ -47,7 +47,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const approver = can(user.role, "request:approve")
   const exec = user.role === "EXECUTIVE"
 
-  const [items, out30, pending, weekly, pointsWeekly, decisions, purposes, mine, flow, rewardsDue, upcoming, toRecord, top] = await Promise.all([
+  const [items, out30, pending, weekly, pointsWeekly, decisions, purposes, mine, flow, rewardsDue, upcoming, toRecord, top, prizesDue] = await Promise.all([
     prisma.stockItem.findMany({ where: { status: "ACTIVE" }, include: { category: true } }),
     prisma.distributionLine.aggregate({ where: { request: { status: "APPROVED" }, distributedOn: { gte: since30 } }, _sum: { quantity: true }, _count: true }),
     prisma.request.findMany({ where: { status: "SUBMITTED" }, select: { id: true, submittedAt: true, totalQty: true, createdById: true } }),
@@ -78,6 +78,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     prisma.event.findMany({ where: { status: "PLANNED", date: { gte: subDays(new Date(), 1) } }, include: { eventType: true }, orderBy: { date: "asc" }, take: 3 }),
     can(user.role, "rewards:operate") ? prisma.event.count({ where: { status: "PLANNED", date: { lt: subDays(new Date(), 1) } } }) : 0,
     leaderboard("quarter", { take: 5 }),
+    can(user.role, "rewards:operate") ? prisma.eventAward.count({ where: { status: "PENDING" } }) : 0,
   ])
 
   const onHand = items.reduce((s, i) => s + i.availableQty, 0)
@@ -109,6 +110,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   if (drafts && can(user.role, "request:create")) attention.push({ key: "drafts", icon: FileClockIcon, tone: "info", title: `${drafts} draft${drafts > 1 ? "s" : ""} not submitted`, detail: "Stock doesn't move until approved", href: "/requests?status=DRAFT", action: "Continue" })
   if (out.length && (exec || user.role === "ADMIN")) attention.push({ key: "out", icon: PackageXIcon, tone: "danger", title: `${out.length} item${out.length > 1 ? "s" : ""} out of stock`, detail: out.slice(0, 2).map((i) => i.name).join(", "), href: "/stock?state=out", action: "See items" })
   if (low.length && (exec || user.role === "ADMIN")) attention.push({ key: "low", icon: AlertTriangleIcon, tone: "warn", title: `${low.length} item${low.length > 1 ? "s" : ""} running low`, detail: "At or below reorder level", href: "/stock?state=low", action: "Plan inward" })
+  if (prizesDue && can(user.role, "rewards:operate")) attention.push({ key: "prizes", icon: TrophyIcon, tone: "reward", title: `${prizesDue} event prize${prizesDue > 1 ? "s" : ""} to hand out`, detail: "Winners' vouchers and goodies", href: "/prizes", action: "Hand out" })
   if (rewardsDue && can(user.role, "rewards:operate")) attention.push({ key: "rewards", icon: GiftIcon, tone: "reward", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone", href: "/rewards", action: "Hand out" })
   if (toRecord) attention.push({ key: "record", icon: CalendarClockIcon, tone: "info", title: `${toRecord} past event${toRecord > 1 ? "s" : ""} without attendance`, detail: "Mark attendees so they get their points", href: "/events?view=upcoming", action: "Record" })
 

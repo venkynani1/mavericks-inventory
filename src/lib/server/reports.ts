@@ -5,7 +5,7 @@ import { fmtDate, fmtDateTime } from "@/lib/utils"
 import { getSettings } from "./settings"
 import { isOverdue } from "./workflow"
 
-export type ReportKey = "availability" | "distributed" | "pending" | "approvals" | "ledger" | "points" | "attendance" | "rewards"
+export type ReportKey = "availability" | "distributed" | "pending" | "approvals" | "ledger" | "points" | "attendance" | "rewards" | "prizes"
 export type Filters = { q?: string; from?: string; to?: string; category?: string; item?: string; purpose?: string; location?: string; stock?: string; event?: string; status?: string; dept?: string }
 export type ReportColumn = { key: string; header: string; width?: number; align?: "right"; numeric?: boolean }
 export type ReportResult = { title: string; columns: ReportColumn[]; rows: Record<string, string | number | null>[]; total: number; summary?: { label: string; value: string }[] }
@@ -19,6 +19,7 @@ export const REPORTS: { key: ReportKey; title: string; description: string }[] =
   { key: "points", title: "Employee points", description: "Every employee's current and lifetime points, events attended and rewards." },
   { key: "attendance", title: "Event attendance", description: "Who attended which event and the points they received." },
   { key: "rewards", title: "Points rewards", description: "Milestone rewards earned, with their status and the goodie handed over." },
+  { key: "prizes", title: "Event prizes", description: "Winners and top performers with their prize (voucher, goodie or other), status and reference: the list finance needs." },
 ]
 
 const range = (from?: string, to?: string) => {
@@ -275,6 +276,48 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
         ],
         rows: rows.map((r) => ({ earned: fmtDate(r.earnedAt), empId: r.employee.empId, name: r.employee.name, milestone: r.threshold, cycle: r.cycle, title: r.title, status: ST[r.status], goodie: r.line?.stockItem.name ?? "", request: r.line?.request.number ?? "", issued: r.issuedAt ? fmtDate(r.issuedAt) : "" })),
         total,
+      }
+    }
+    case "prizes": {
+      const where: Prisma.EventAwardWhereInput = {}
+      if (f.status && ["PENDING", "IN_APPROVAL", "ISSUED", "CANCELLED"].includes(f.status)) where.status = f.status as "PENDING"
+      const dr = range(f.from, f.to)
+      if (dr) where.event = { date: dr }
+      if (f.q) where.OR = [{ employee: { name: { contains: f.q, mode: "insensitive" } } }, { employee: { empId: { contains: f.q } } }, { event: { name: { contains: f.q, mode: "insensitive" } } }]
+      const [rows, total, sum] = await Promise.all([
+        prisma.eventAward.findMany({ where, include: { employee: true, event: true, stockItem: true, line: { include: { request: true } } }, orderBy: [{ event: { date: "desc" } }, { createdAt: "asc" }], take: limit }),
+        prisma.eventAward.count({ where }),
+        prisma.eventAward.aggregate({ where: { ...where, kind: "VOUCHER", status: { not: "CANCELLED" } }, _sum: { voucherAmount: true } }),
+      ])
+      const ST = { PENDING: "To hand out", IN_APPROVAL: "In approval", ISSUED: "Issued", CANCELLED: "Cancelled" } as const
+      const KIND = { GOODIE: "Goodie", VOUCHER: "Voucher", OTHER: "Other" } as const
+      return {
+        title: meta.title,
+        columns: [
+          { key: "date", header: "Event date", width: 13 },
+          { key: "code", header: "Event code", width: 14 },
+          { key: "event", header: "Event", width: 32 },
+          { key: "position", header: "Position", width: 16 },
+          { key: "empId", header: "Emp ID", width: 13 },
+          { key: "name", header: "Name", width: 24 },
+          { key: "kind", header: "Prize type", width: 10 },
+          { key: "prize", header: "Prize", width: 32 },
+          { key: "amount", header: "Voucher (₹)", numeric: true, align: "right" },
+          { key: "bonus", header: "Bonus points", numeric: true, align: "right" },
+          { key: "status", header: "Status", width: 12 },
+          { key: "ref", header: "Reference / request", width: 24 },
+          { key: "issued", header: "Issued", width: 13 },
+        ],
+        rows: rows.map((a) => ({
+          date: fmtDate(a.event.date), code: a.event.code, event: a.event.name, position: a.position, empId: a.employee.empId, name: a.employee.name, kind: KIND[a.kind],
+          prize: a.kind === "GOODIE" ? `${a.stockItem?.name ?? ""}${a.quantity > 1 ? ` x${a.quantity}` : ""}` : a.kind === "VOUCHER" ? `${a.voucherProvider ?? "Amazon"} voucher` : (a.description ?? ""),
+          amount: a.voucherAmount, bonus: a.bonusPoints || null, status: ST[a.status], ref: a.line?.request.number ?? a.voucherRef ?? "", issued: a.issuedAt ? fmtDate(a.issuedAt) : "",
+        })),
+        total,
+        summary: [
+          { label: "Prizes", value: String(total) },
+          { label: "Voucher value (₹)", value: String(sum._sum.voucherAmount ?? 0) },
+        ],
       }
     }
   }

@@ -23,12 +23,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The three badge counts run as one round trip to the database.
   const [counts] =
     user.role === "EMPLOYEE"
-      ? [{ approvals: 0, mine: 0, rewardsDue: 0 }]
-      : await prisma.$queryRaw<{ approvals: number; mine: number; rewardsDue: number }[]>`
+      ? [{ approvals: 0, mine: 0, rewardsDue: 0, prizesDue: 0 }]
+      : await prisma.$queryRaw<{ approvals: number; mine: number; rewardsDue: number; prizesDue: number }[]>`
           SELECT
             (SELECT count(*)::int FROM "Request" WHERE status = 'SUBMITTED' AND "createdById" <> ${user.id} AND ${can(user.role, "request:approve")}) AS approvals,
             (SELECT count(*)::int FROM "Request" WHERE "createdById" = ${user.id} AND status IN ('DRAFT', 'REJECTED')) AS mine,
-            (SELECT count(*)::int FROM "RewardEarned" WHERE status = 'DUE' AND ${can(user.role, "rewards:operate")}) AS "rewardsDue"`
+            (SELECT count(*)::int FROM "RewardEarned" WHERE status = 'DUE' AND ${can(user.role, "rewards:operate")}) AS "rewardsDue",
+            (SELECT count(*)::int FROM "EventAward" WHERE status = 'PENDING' AND ${can(user.role, "rewards:operate")}) AS "prizesDue"`
   const open = (await cookies()).get("sidebar_state")?.value !== "false"
   return (
     <SidebarProvider defaultOpen={open} className="flex-col">

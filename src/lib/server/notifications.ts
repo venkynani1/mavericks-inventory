@@ -12,6 +12,8 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
   if (user.role === "EMPLOYEE") {
     const emp = await prisma.employee.findFirst({ where: { user: { id: user.id } }, select: { id: true } })
     if (!emp) return out
+    const prizes = await prisma.eventAward.count({ where: { employeeId: emp.id, status: { in: ["PENDING", "IN_APPROVAL"] } } })
+    if (prizes) out.push({ id: "prizes", tone: "success", title: `${prizes} prize${prizes > 1 ? "s" : ""} on the way`, detail: "Congratulations on your win!", href: "/me/goodies" })
     const [due, inProg, recent] = await Promise.all([
       prisma.rewardEarned.count({ where: { employeeId: emp.id, status: "DUE" } }),
       prisma.rewardEarned.count({ where: { employeeId: emp.id, status: "IN_PROGRESS" } }),
@@ -24,7 +26,7 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
   }
   const settings = await getSettings()
   const overdueBefore = new Date(Date.now() - settings.escalationHours * 3600_000)
-  const [toApprove, overdue, mineRejected, mineDraft, low, out0, rewardsDue] = await Promise.all([
+  const [toApprove, overdue, mineRejected, mineDraft, low, out0, rewardsDue, prizesDue] = await Promise.all([
     can(user.role, "request:approve") ? prisma.request.count({ where: { status: "SUBMITTED", createdById: { not: user.id } } }) : 0,
     can(user.role, "request:approve") ? prisma.request.count({ where: { status: "SUBMITTED", submittedAt: { lt: overdueBefore } } }) : 0,
     prisma.request.count({ where: { createdById: user.id, status: "REJECTED" } }),
@@ -32,6 +34,7 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
     can(user.role, "stock:write") || user.role === "ADMIN" ? prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "StockItem" WHERE status = 'ACTIVE' AND "availableQty" > 0 AND "availableQty" <= "reorderLevel"` : [{ n: BigInt(0) }],
     can(user.role, "stock:write") || user.role === "ADMIN" ? prisma.stockItem.count({ where: { status: "ACTIVE", availableQty: { lte: 0 } } }) : 0,
     can(user.role, "rewards:operate") ? prisma.rewardEarned.count({ where: { status: "DUE" } }) : 0,
+    can(user.role, "rewards:operate") ? prisma.eventAward.count({ where: { status: "PENDING" } }) : 0,
   ])
   if (toApprove) out.push({ id: "approve", tone: "warn", title: `${toApprove} request${toApprove > 1 ? "s" : ""} waiting for you`, detail: "Review and approve or reject.", href: "/approvals" })
   if (overdue) out.push({ id: "overdue", tone: "danger", title: `${overdue} overdue`, detail: `Waiting longer than ${settings.escalationHours} hours.`, href: "/approvals" })
@@ -41,5 +44,6 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
   if (out0) out.push({ id: "out", tone: "danger", title: `${out0} item${out0 > 1 ? "s" : ""} out of stock`, detail: "Plan a stock inward.", href: "/stock?state=out" })
   if (lowN) out.push({ id: "low", tone: "warn", title: `${lowN} item${lowN > 1 ? "s" : ""} at or below reorder level`, detail: "Check the reorder suggestions.", href: "/stock?state=low" })
   if (rewardsDue) out.push({ id: "rewards", tone: "success", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone. Hand out their goodies.", href: "/rewards" })
+  if (prizesDue) out.push({ id: "prizes", tone: "success", title: `${prizesDue} event prize${prizesDue > 1 ? "s" : ""} to hand out`, detail: "Winners' vouchers and goodies are waiting.", href: "/prizes" })
   return out
 }

@@ -200,10 +200,64 @@ async function upgradeDemo() {
   return true
 }
 
+/**
+ * Demo prizes: winners and runners-up at three hackathons/codeathons. The older event's prizes are
+ * handed over (vouchers with order references, a trophy); the recent ones wait in Event prizes.
+ * Runs on a fresh seed and once on an older demo database that has events but no prizes.
+ */
+async function seedPrizes() {
+  const exec = await prisma.user.findUnique({ where: { email: "executive@mavericks.demo" } })
+  if (!exec || (await prisma.eventAward.count()) > 0) return 0
+  const ev = async (name: string) => prisma.event.findFirst({ where: { name }, include: { attendance: { include: { employee: true }, orderBy: { createdAt: "asc" } } } })
+  const item = async (re: string) => (await prisma.stockItem.findFirst({ where: { status: "ACTIVE", name: { contains: re, mode: "insensitive" } } }))?.id ?? null
+  const plan: { event: string; prizes: { position: string; kind: "GOODIE" | "VOUCHER" | "OTHER"; amount?: number; item?: string; description?: string; issued?: string; preferPriyanka?: boolean }[] }[] = [
+    { event: "Mavericks Hackathon 2026", prizes: [
+      { position: "Winner", kind: "VOUCHER", amount: 10000, issued: "Amazon order 403-5512870-1180331" },
+      { position: "Runner-up", kind: "VOUCHER", amount: 5000, issued: "Amazon order 403-5512870-1180332" },
+      { position: "Second runner-up", kind: "VOUCHER", amount: 3000, issued: "Amazon order 403-5512870-1180333" },
+      { position: "Special mention", kind: "OTHER", description: "Trophy and certificate, best pitch", issued: "Handed over at the town hall" },
+    ] },
+    { event: "Hackathon: Agentic AI", prizes: [
+      { position: "Winner", kind: "VOUCHER", amount: 5000, preferPriyanka: true },
+      { position: "Runner-up", kind: "GOODIE", item: "Smart Watch" },
+      { position: "Second runner-up", kind: "VOUCHER", amount: 2000 },
+      { position: "Top performer", kind: "GOODIE", item: "Bluetooth Speaker" },
+    ] },
+    { event: "Codeathon: SQL tuning", prizes: [
+      { position: "Winner", kind: "VOUCHER", amount: 3000 },
+      { position: "Special mention", kind: "OTHER", description: "Certificate of excellence" },
+    ] },
+  ]
+  let n = 0
+  for (const p of plan) {
+    const e = await ev(p.event)
+    if (!e || e.attendance.length < p.prizes.length) continue
+    const pool = [...e.attendance]
+    for (const prize of p.prizes) {
+      const idx = prize.preferPriyanka ? Math.max(0, pool.findIndex((a) => a.employee.empId === "2000149999")) : pool.length > 1 && pool[0].employee.empId === "2000149999" ? 1 : 0
+      const [winner] = pool.splice(idx, 1)
+      await prisma.eventAward.create({
+        data: {
+          eventId: e.id, employeeId: winner.employeeId, position: prize.position, kind: prize.kind, quantity: 1,
+          stockItemId: prize.item ? await item(prize.item) : null, voucherProvider: prize.kind === "VOUCHER" ? "Amazon" : null, voucherAmount: prize.amount ?? null,
+          description: prize.description ?? null, status: prize.issued ? "ISSUED" : "PENDING", voucherRef: prize.issued ?? null,
+          issuedAt: prize.issued ? new Date(e.date.getTime() + 5 * 86400_000) : null, issuedById: prize.issued ? exec.id : null, createdById: exec.id, createdAt: new Date(e.date.getTime() + 86400_000),
+        },
+      })
+      n++
+    }
+  }
+  if (n) console.log(`Added ${n} demo event prizes.`)
+  return n
+}
+
 async function main() {
   if (await prisma.user.count()) {
-    if (await upgradeDemo()) return
-    console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
+    // Older databases get any new standard lists (event types, prize positions) without touching existing values.
+    await ensureBaseData(prisma)
+    const upgraded = await upgradeDemo()
+    const prizes = await seedPrizes()
+    if (!upgraded && !prizes) console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
     return
   }
   const password = process.env.SEED_PASSWORD || "Mavericks@2026"
@@ -444,6 +498,7 @@ async function main() {
     ],
   })
 
+  await seedPrizes()
   await prisma.auditLog.create({ data: { actorId: U.ADMIN.id, action: "SYSTEM.SEED", entity: "System", summary: `Loaded ${rows.length} stock items and ${batches.length} approved distributions from the Sep 25 tracker` } })
   console.log(`Seeded ${rows.length} items, ${batches.length} historical distributions, ${await prisma.employee.count()} employees, ${evNo} events. Demo password: ${password}`)
 }

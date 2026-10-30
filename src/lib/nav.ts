@@ -5,9 +5,9 @@ import { can, type Role } from "@/lib/roles"
 export type NavIcon =
   | "home" | "items" | "movements" | "count" | "inward" | "distribution" | "requests" | "approvals"
   | "events" | "employees" | "leaderboard" | "rewards" | "reports" | "users" | "rules" | "rewardRules"
-  | "masters" | "audit" | "system" | "me" | "assistant"
+  | "masters" | "audit" | "system" | "me" | "assistant" | "prizes"
 
-export type NavItem = { href: string; label: string; icon: NavIcon; badge?: "approvals" | "mine" | "rewardsDue"; exact?: boolean }
+export type NavItem = { href: string; label: string; icon: NavIcon; badge?: "approvals" | "mine" | "rewardsDue" | "prizesDue"; exact?: boolean }
 export type NavGroup = { label: string; items: NavItem[] }
 
 export function navFor(role: Role): NavGroup[] {
@@ -48,7 +48,8 @@ export function navFor(role: Role): NavGroup[] {
       items: [
         { href: "/events", label: "Events", icon: "events" },
         { href: "/employees", label: "Employees and points", icon: "employees" },
-        { href: "/rewards", label: "Rewards", icon: "rewards", badge: exec ? "rewardsDue" : undefined },
+        { href: "/rewards", label: "Milestone rewards", icon: "rewards", badge: exec ? "rewardsDue" : undefined },
+        { href: "/prizes", label: "Event prizes", icon: "prizes", badge: exec ? "prizesDue" : undefined },
         { href: "/leaderboard", label: "Leaderboard", icon: "leaderboard" },
       ],
     },

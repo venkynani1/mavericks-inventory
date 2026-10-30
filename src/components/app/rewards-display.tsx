@@ -133,3 +133,23 @@ export function Kpi({ label, value, hint, tone, icon, href }: { label: string; v
     <div className={cls}>{body}</div>
   )
 }
+
+const AW: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "To hand out", cls: "bg-reward-soft text-reward" },
+  IN_APPROVAL: { label: "In approval", cls: "bg-pending-soft text-pending" },
+  ISSUED: { label: "Issued", cls: "bg-approved-soft text-approved" },
+  CANCELLED: { label: "Cancelled", cls: "bg-muted text-muted-foreground" },
+}
+export function AwardStatusBadge({ status, employeeView }: { status: string; employeeView?: boolean }) {
+  const m = AW[status]
+  const label = employeeView ? ({ PENDING: "On the way", IN_APPROVAL: "On the way", ISSUED: "Received", CANCELLED: "Cancelled" } as Record<string, string>)[status] : m.label
+  return (
+    <span className={cn("inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap", m.cls)}>
+      <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      {label}
+    </span>
+  )
+}
+
+/** Colour for a prize position: gold for winners, blue for runners-up, grey for the rest. */
+export const POSITION_TONE = (p: string) => (/^winner/i.test(p) ? "bg-reward-soft text-reward" : /runner/i.test(p) ? "bg-accent text-accent-foreground" : "bg-muted text-foreground")
