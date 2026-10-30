@@ -17,6 +17,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvenkynani1%2Fmavericks-inventory&project-name=mavericks-inventory&repository-name=mavericks-inventory&env=AUTH_SECRET,SEED_DEMO_DATA,DEMO_MODE&envDescription=AUTH_SECRET%3A%20any%20random%20text%20of%2032%2B%20characters.%20SEED_DEMO_DATA%20and%20DEMO_MODE%3A%20true%20for%20a%20demo%20with%20sample%20data%2C%20false%20for%20production.&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
 - **[BRD traceability](docs/BRD-TRACEABILITY.md):** where each requirement in the BRD is met
+- **[Demo script and roles guide](docs/DEMO-SCRIPT.md):** a 25-minute walkthrough of every role and process, with what to click and what to say
 - **[Test plan](docs/TEST-PLAN.md):** automated checks, 20 real-world UAT scenarios, edge cases and a sign-off sheet
 
 ## What it does
