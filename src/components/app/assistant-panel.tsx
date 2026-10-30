@@ -6,8 +6,32 @@ import { ArrowUpIcon, RotateCcwIcon, SparklesIcon } from "lucide-react"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
+import { reportClientError } from "./error-report"
 
 type Msg = { role: "user" | "assistant"; text: string; links?: { label: string; href: string }[]; notice?: string }
+
+/** Keeps a problem inside the assistant from taking down the whole page, and reports it. */
+class PanelBoundary extends Component<{ children: React.ReactNode; onReset: () => void }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    reportClientError(error, "assistant-panel", info.componentStack?.split("\n").slice(0, 8).join("\n"))
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return (
+      <div className="flex flex-col gap-3 p-4 text-sm">
+        <p className="font-medium">Mav hit a problem showing that answer.</p>
+        <pre className="rounded-md bg-muted p-2 text-xs whitespace-pre-wrap">{this.state.error.message}</pre>
+        <button type="button" className="w-fit rounded-md border px-3 py-1.5" onClick={() => (this.setState({ error: null }), this.props.onReset())}>
+          Start again
+        </button>
+      </div>
+    )
+  }
+}
 
 /** If an answer can't be formatted, show it as plain text instead of breaking the page. */
 class SafeText extends Component<{ text: string; children: React.ReactNode }, { failed: boolean }> {
@@ -108,7 +132,8 @@ export function AssistantPanel({ name }: { name: string }) {
       const text = typeof d?.text === "string" && d.text.trim() ? d.text : "I couldn't get an answer. Try again."
       const links = Array.isArray(d?.links) ? d.links.filter((l: { href?: unknown; label?: unknown }) => typeof l?.href === "string" && l.href.startsWith("/") && typeof l?.label === "string") : []
       setMsgs([...next, r.ok ? { role: "assistant", text, links, notice: typeof d?.notice === "string" ? d.notice : undefined } : { role: "assistant", text: d?.error?.message ?? "Something went wrong. Try again." }])
-    } catch {
+    } catch (e) {
+      reportClientError(e, "assistant-ask")
       setMsgs([...next, { role: "assistant", text: "I couldn't reach the server. Check your connection and try again." }])
     } finally {
       setBusy(false)
@@ -133,6 +158,8 @@ export function AssistantPanel({ name }: { name: string }) {
           )}
         </SheetHeader>
 
+        <PanelBoundary onReset={() => setMsgs([])}>
+        <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-4 py-4" aria-live="polite">
           {msgs.length === 0 && (
             <div className="flex flex-col gap-4">
@@ -219,6 +246,8 @@ export function AssistantPanel({ name }: { name: string }) {
             {mode && mode !== "built-in" ? `Powered by ${mode}. Answers can be wrong; check important numbers.` : "Built-in answers from live data."}
           </p>
         </form>
+        </div>
+        </PanelBoundary>
       </SheetContent>
     </Sheet>
   )

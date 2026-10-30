@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Bricolage_Grotesque, Public_Sans } from "next/font/google"
 import { ThemeProvider } from "next-themes"
 import { Toaster } from "@/components/ui/sonner"
+import { ErrorListener } from "@/components/app/error-listener"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import "./globals.css"
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           <Toaster position="top-right" richColors closeButton />
+          <ErrorListener />
         </ThemeProvider>
       </body>
     </html>

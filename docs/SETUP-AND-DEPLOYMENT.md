@@ -91,7 +91,7 @@ The app is configured only through these settings. On Vercel/AWS/Azure you enter
 | `GROQ_API_KEY` | No | **Free option.** Turns on Groq (open models such as Llama) for the assistant. | `gsk_…` |
 | `ANTHROPIC_API_KEY` | No | Turns on Claude for the assistant (paid, pay as you go). Takes priority over the others. | `sk-ant-…` |
 | `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, `AI_PROVIDER_NAME` | No | Any other OpenAI-compatible service (OpenRouter, Azure OpenAI, OpenAI). | `https://openrouter.ai/api/v1` |
-| `ASSISTANT_MODEL` | No | Overrides the model name for whichever service is used. Defaults: Claude `claude-haiku-5-5`, Gemini `gemini-2.5-flash`, Groq `llama-3.3-70b-versatile`. | `gemini-2.5-flash` |
+| `ASSISTANT_MODEL` | No | Overrides the model name for whichever service is used. Defaults: Claude `claude-haiku-5-5`, Gemini `gemini-3.1-flash-lite` (falls back to other Gemini models when one is busy or retired), Groq `llama-3.3-70b-versatile`. | `gemini-3.1-flash-lite` |
 | `DB_POOL_SIZE` | No | Database connections per app instance (default 10). Pages run several queries side by side; a small pool makes them queue. Use your provider's **pooled** address with it. | `10` |
 | `SSO_DEFAULT_ROLE` | No (SSO) | Role given to people who sign in with SSO but have no app role in the directory. `EMPLOYEE` lets every employee see their own points. Empty refuses them. | `EMPLOYEE` |
 | `SEED_PASSWORD` | No | Password given to the demo users when you load demo data. | `Mavericks@2026` |

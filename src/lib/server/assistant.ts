@@ -326,13 +326,13 @@ function systemPrompt(ctx: Ctx) {
  *   none                                     → built-in answers
  * ASSISTANT_MODEL overrides the model name for any of them.
  */
-export type Provider = { name: string; kind: "anthropic" | "openai"; key: string; baseUrl: string; model: string }
+export type Provider = { name: string; kind: "anthropic" | "openai"; key: string; baseUrl: string; model: string; fallbacks?: string[]; extra?: Record<string, unknown> }
 
 export function assistantProvider(): Provider | null {
   const env = process.env
   const m = env.ASSISTANT_MODEL?.trim()
   if (env.ANTHROPIC_API_KEY) return { name: "Claude", kind: "anthropic", key: env.ANTHROPIC_API_KEY, baseUrl: "https://api.anthropic.com", model: m || "claude-haiku-5-5" }
-  if (env.GEMINI_API_KEY) return { name: "Gemini", kind: "openai", key: env.GEMINI_API_KEY, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: m || "gemini-2.5-flash" }
+  if (env.GEMINI_API_KEY) return { name: "Gemini", kind: "openai", key: env.GEMINI_API_KEY, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: m || "gemini-3.1-flash-lite", fallbacks: m ? [] : ["gemini-flash-lite-latest", "gemini-flash-latest"], extra: { reasoning_effort: "low" } }
   if (env.GROQ_API_KEY) return { name: "Groq", kind: "openai", key: env.GROQ_API_KEY, baseUrl: "https://api.groq.com/openai/v1", model: m || "llama-3.3-70b-versatile" }
   if (env.AI_API_KEY && env.AI_BASE_URL) return { name: env.AI_PROVIDER_NAME || "AI", kind: "openai", key: env.AI_API_KEY, baseUrl: env.AI_BASE_URL.replace(/\/+$/, ""), model: m || env.AI_MODEL || "gpt-4o-mini" }
   return null
@@ -351,14 +351,29 @@ export async function answerWithOpenAICompatible(history: { role: "user" | "assi
   type M = { role: string; content: string | null; tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[]; tool_call_id?: string }
   const messages: M[] = [{ role: "system", content: systemPrompt(ctx) }, ...history.slice(-10).map((m) => ({ role: m.role, content: m.text }))]
   const links: Link[] = []
+  // Stay inside the hosting platform's time limit (60 s on Vercel), leaving room for the built-in fallback.
+  const deadline = Date.now() + 45_000
   for (let turn = 0; turn < 5; turn++) {
-    const r = await fetch(`${p.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${p.key}` },
-      body: JSON.stringify({ model: p.model, messages, tools, tool_choice: "auto", max_tokens: 900, temperature: 0.2 }),
-      signal: AbortSignal.timeout(30_000),
-    })
-    if (!r.ok) throw new Error(`${p.name} API ${r.status}: ${(await r.text()).slice(0, 300)}`)
+    if (Date.now() > deadline) throw new Error(`${p.name}: took too long`)
+    // Try the main model, then the fallbacks when a model is retired (404) or overloaded (429/503).
+    let r: Response | null = null
+    let lastErr = ""
+    for (const model of [p.model, ...(p.fallbacks ?? [])]) {
+      r = await fetch(`${p.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${p.key}` },
+        body: JSON.stringify({ model, messages, tools, tool_choice: "auto", max_tokens: 1500, temperature: 0.2, ...p.extra }),
+        signal: AbortSignal.timeout(Math.max(5_000, Math.min(25_000, deadline - Date.now()))),
+      }).catch((e) => {
+        lastErr = `${p.name} (${model}): ${e instanceof Error ? e.message : e}`
+        return null
+      })
+      if (!r) continue
+      if (r.ok) break
+      lastErr = `${p.name} API ${r.status} (${model}): ${(await r.text()).slice(0, 300)}`
+      if (![404, 429, 500, 503].includes(r.status)) break
+    }
+    if (!r?.ok) throw new Error(lastErr)
     const data = (await r.json()) as { choices?: { message?: M & { content?: unknown } }[] }
     const msg = data.choices?.[0]?.message
     if (!msg) throw new Error(`${p.name} API returned no answer: ${JSON.stringify(data).slice(0, 300)}`)

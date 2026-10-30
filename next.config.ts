@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // Vercel ignores this and uses its own output.
   output: process.env.STANDALONE === "true" ? "standalone" : undefined,
   poweredByHeader: false,
+  // The code is public on GitHub anyway; readable stack traces make browser errors quick to diagnose.
+  productionBrowserSourceMaps: true,
   serverExternalPackages: ["exceljs", "jspdf", "jspdf-autotable"],
   experimental: {
     serverActions: { bodySizeLimit: "4mb" },
