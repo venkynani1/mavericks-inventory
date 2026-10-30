@@ -91,6 +91,7 @@ How points work: each event type is worth a fixed number of points that the admi
 7. As **Manager**, approve that request. Back in **Milestone rewards**, the **Issued** tab now lists them, and the goodies are off the shelf.
 8. Optional: on the event page, remove someone with the minus button and a reason. Exactly their 400 points are reversed.
 9. **Leaderboard:** podium, last 90 days, by department. **Say:** "Good for recognising people at town halls."
+
 **Events from Excel, winners and prizes** (continue as Executive):
 
 1. **Plan events from Excel:** on **Events**, select **Upload events**, then **Template**. Upload the filled sheet (Event name, Event type, Date, plus optional Location, Organiser, Points). Future events land under **Upcoming**, rows with problems are listed, and uploading the same sheet again creates no duplicates.
