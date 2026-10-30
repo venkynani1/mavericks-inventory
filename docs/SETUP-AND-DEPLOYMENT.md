@@ -87,8 +87,11 @@ The app is configured only through these settings. On Vercel/AWS/Azure you enter
 | `BOOTSTRAP_ADMIN_PASSWORD` | For a production start | A temporary password (10+ characters) for that first sign-in. The admin must change it straight away. | `Temp-Start-2026!` |
 | `DEMO_MODE` | No | Demo sign-in buttons show automatically when the demo accounts exist. `false` hides them, and also lets the demo accounts' passwords and roles be changed (they're locked otherwise, so a shared demo link keeps working). Use `false` in production. | `false` |
 | `DEMO_PASSWORD` | No | The password the one-click demo buttons use, if you seeded with a different `SEED_PASSWORD`. | `Mavericks@2026` |
-| `ANTHROPIC_API_KEY` | No | Turns on Claude for the assistant. Without it the assistant uses built-in answers. Keep it in the secret store. | `sk-ant-…` |
-| `ASSISTANT_MODEL` | No | Claude model for the assistant. | `claude-haiku-5-5` (default) or `claude-sonnet-5-5` |
+| `GEMINI_API_KEY` | No | **Free option.** Turns on Google Gemini for the assistant (key from Google AI Studio). See [Make the assistant smarter](#make-the-assistant-smarter-free-or-paid). | `AIza…` |
+| `GROQ_API_KEY` | No | **Free option.** Turns on Groq (open models such as Llama) for the assistant. | `gsk_…` |
+| `ANTHROPIC_API_KEY` | No | Turns on Claude for the assistant (paid, pay as you go). Takes priority over the others. | `sk-ant-…` |
+| `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, `AI_PROVIDER_NAME` | No | Any other OpenAI-compatible service (OpenRouter, Azure OpenAI, OpenAI). | `https://openrouter.ai/api/v1` |
+| `ASSISTANT_MODEL` | No | Overrides the model name for whichever service is used. Defaults: Claude `claude-haiku-5-5`, Gemini `gemini-2.5-flash`, Groq `llama-3.3-70b-versatile`. | `gemini-2.5-flash` |
 | `DB_POOL_SIZE` | No | Database connections per app instance (default 10). Pages run several queries side by side; a small pool makes them queue. Use your provider's **pooled** address with it. | `10` |
 | `SSO_DEFAULT_ROLE` | No (SSO) | Role given to people who sign in with SSO but have no app role in the directory. `EMPLOYEE` lets every employee see their own points. Empty refuses them. | `EMPLOYEE` |
 | `SEED_PASSWORD` | No | Password given to the demo users when you load demo data. | `Mavericks@2026` |
@@ -1159,6 +1162,32 @@ ALTER TABLE "User" ADD COLUMN "ssoSubject" TEXT;
 CREATE UNIQUE INDEX "User_ssoSubject_key" ON "User"("ssoSubject");
 ```
 
+
+---
+
+### Make the assistant smarter (free or paid)
+
+Without a key, "Ask Mav" uses built-in answers: it recognises common questions (points, low stock, approvals, events, rewards, how-to). With a key, an AI model understands any wording and can combine several lookups. Either way it reads data only through the same role-checked lookups, so an employee still sees only their own information.
+
+**Free: Google Gemini**
+
+1. Go to **aistudio.google.com**, sign in with a Google account, select **Get API key → Create API key**, and copy it.
+2. Vercel: project → **Settings → Environment Variables** → add `GEMINI_API_KEY` with the key, for Production and Preview → **Save**.
+3. **Deployments → ⋯ → Redeploy**. Open Ask Mav: the line under the box says "Powered by Gemini". **System status** also shows which service and model are in use.
+
+**Free: Groq**
+
+1. Go to **console.groq.com**, sign in, **API Keys → Create API Key**, copy it.
+2. Add `GROQ_API_KEY` in Vercel the same way and redeploy.
+
+**Paid, best quality: Claude.** Create a key at **console.anthropic.com** (pay as you go) and add `ANTHROPIC_API_KEY`.
+
+Notes:
+
+- Free tiers have rate limits and the providers' own terms, which can change; check them on the provider's site. Free tiers may use the questions to improve their models, so for production with real employee data use a paid tier or your company's approved provider (for example Azure OpenAI through `AI_API_KEY` / `AI_BASE_URL`).
+- If the AI service fails or hits its limit, the assistant falls back to built-in answers automatically, so it never stops working.
+- If a provider retires a default model, set `ASSISTANT_MODEL` to a current one from its model list.
+- Keys go only in the hosting platform's settings, never in the code or GitHub.
 
 ---
 

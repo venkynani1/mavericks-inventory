@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { apiError, unauthorized } from "@/lib/server/api"
-import { answerOffline, answerWithClaude, contextFor, suggestionsFor } from "@/lib/server/assistant"
+import { answerOffline, answerWithClaude, answerWithOpenAICompatible, assistantProvider, contextFor, suggestionsFor } from "@/lib/server/assistant"
 import { getUser } from "@/lib/server/session"
 
 export const dynamic = "force-dynamic"
@@ -23,7 +23,7 @@ function limited(id: string) {
 export async function GET() {
   const user = await getUser()
   if (!user) return unauthorized()
-  return Response.json({ suggestions: suggestionsFor(user.role), mode: process.env.ANTHROPIC_API_KEY ? "claude" : "built-in" })
+  return Response.json({ suggestions: suggestionsFor(user.role), mode: assistantProvider()?.name ?? "built-in" })
 }
 
 export async function POST(req: Request) {
@@ -37,7 +37,8 @@ export async function POST(req: Request) {
   if (last.role !== "user" || !last.text.trim()) return apiError(400, "INVALID_INPUT", "The last message must be a question.")
   const ctx = await contextFor(user)
   try {
-    if (process.env.ANTHROPIC_API_KEY) return Response.json({ ...(await answerWithClaude(msgs, ctx)), mode: "claude" })
+    const p = assistantProvider()
+    if (p) return Response.json({ ...(await (p.kind === "anthropic" ? answerWithClaude(msgs, ctx) : answerWithOpenAICompatible(msgs, ctx, p))), mode: p.name })
   } catch (e) {
     console.error("assistant: falling back to built-in answers", e)
   }

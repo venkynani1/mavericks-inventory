@@ -3,6 +3,7 @@ import { ActivityIcon, CheckCircle2Icon, CloudIcon, DatabaseIcon, GaugeIcon, Tri
 import { prisma } from "@/lib/db"
 import { requirePermission } from "@/lib/server/session"
 import { systemReport } from "@/lib/server/system"
+import { assistantProvider } from "@/lib/server/assistant"
 import { fmtNum } from "@/lib/utils"
 import { PageHeader, Panel, PanelHeader } from "@/components/app/page-header"
 import { Kpi } from "@/components/app/rewards-display"
@@ -48,7 +49,7 @@ export default async function SystemStatus() {
             <dt className="text-muted-foreground">Same region</dt><dd>{r.sameRegion === null ? "Can't tell" : r.sameRegion ? "Yes" : "No"}</dd>
             <dt className="text-muted-foreground">Node.js</dt><dd>{r.node}</dd>
             <dt className="text-muted-foreground">Version</dt><dd>{r.commit ?? "Not reported"}</dd>
-            <dt className="text-muted-foreground">Assistant</dt><dd>{process.env.ANTHROPIC_API_KEY ? `Claude (${process.env.ASSISTANT_MODEL || "claude-haiku-5-5"})` : "Built-in answers (no API key set)"}</dd>
+            <dt className="text-muted-foreground">Assistant</dt><dd>{(() => { const p = assistantProvider(); return p ? `${p.name} (${p.model})` : "Built-in answers (no API key set)" })()}</dd>
             <dt className="text-muted-foreground">Single sign-on</dt><dd>{process.env.SSO_ISSUER ? `On (${process.env.SSO_PROVIDER_NAME || "Microsoft"})` : "Off"}</dd>
           </dl>
         </Panel>

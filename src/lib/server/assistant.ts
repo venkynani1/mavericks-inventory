@@ -307,17 +307,73 @@ export function suggestionsFor(role: Role): string[] {
 
 type Msg = { role: "user" | "assistant"; content: unknown }
 
-export async function answerWithClaude(history: { role: "user" | "assistant"; text: string }[], ctx: Ctx): Promise<ToolOut> {
-  const key = process.env.ANTHROPIC_API_KEY!
-  const model = process.env.ASSISTANT_MODEL || "claude-haiku-5-5"
-  const tools = toolsFor(ctx.user.role)
-  const system = [
+function systemPrompt(ctx: Ctx) {
+  return [
     `You are "Mav", the assistant inside Mavericks Inventory, Hexaware's goodies stores and employee engagement application.`,
     `You are talking to ${ctx.user.name}, whose role is ${ROLE_LABEL[ctx.user.role]}. Today is ${fmtDate(new Date())}.`,
     `Only answer questions about this application and its data. Use the tools to get facts; never guess numbers. If a question is outside the application, or needs data the tools don't offer to this role, say briefly that it's outside what you can help with here.`,
     ctx.user.role === "EMPLOYEE" ? "This person is an employee: they may only see their own points, goodies and events, the public events list and (if allowed) the leaderboard. Never reveal other employees' details." : "",
     `Answer in short, plain sentences. Use "- " bullet lists for several items and **bold** for key numbers. Don't use headings or tables. Use Indian number formatting (1,00,000).`,
   ].filter(Boolean).join("\n")
+}
+
+/*
+ * Which AI service answers (first match wins):
+ *   ANTHROPIC_API_KEY                        → Claude (paid, best tool use)
+ *   GEMINI_API_KEY                           → Google Gemini (free tier from Google AI Studio)
+ *   GROQ_API_KEY                             → Groq (free tier, open models)
+ *   AI_API_KEY + AI_BASE_URL (+ AI_MODEL)    → any OpenAI-compatible service (OpenRouter, Azure OpenAI, OpenAI…)
+ *   none                                     → built-in answers
+ * ASSISTANT_MODEL overrides the model name for any of them.
+ */
+export type Provider = { name: string; kind: "anthropic" | "openai"; key: string; baseUrl: string; model: string }
+
+export function assistantProvider(): Provider | null {
+  const env = process.env
+  const m = env.ASSISTANT_MODEL?.trim()
+  if (env.ANTHROPIC_API_KEY) return { name: "Claude", kind: "anthropic", key: env.ANTHROPIC_API_KEY, baseUrl: "https://api.anthropic.com", model: m || "claude-haiku-5-5" }
+  if (env.GEMINI_API_KEY) return { name: "Gemini", kind: "openai", key: env.GEMINI_API_KEY, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: m || "gemini-2.5-flash" }
+  if (env.GROQ_API_KEY) return { name: "Groq", kind: "openai", key: env.GROQ_API_KEY, baseUrl: "https://api.groq.com/openai/v1", model: m || "llama-3.3-70b-versatile" }
+  if (env.AI_API_KEY && env.AI_BASE_URL) return { name: env.AI_PROVIDER_NAME || "AI", kind: "openai", key: env.AI_API_KEY, baseUrl: env.AI_BASE_URL.replace(/\/+$/, ""), model: m || env.AI_MODEL || "gpt-4o-mini" }
+  return null
+}
+
+/** Answers with any OpenAI-compatible chat API (Gemini, Groq, OpenRouter, Azure OpenAI…), using the same role-checked tools. */
+export async function answerWithOpenAICompatible(history: { role: "user" | "assistant"; text: string }[], ctx: Ctx, p: Provider): Promise<ToolOut> {
+  const tools = toolsFor(ctx.user.role).map(({ name, description, input_schema }) => ({ type: "function", function: { name, description, parameters: input_schema } }))
+  type M = { role: string; content: string | null; tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[]; tool_call_id?: string }
+  const messages: M[] = [{ role: "system", content: systemPrompt(ctx) }, ...history.slice(-10).map((m) => ({ role: m.role, content: m.text }))]
+  const links: Link[] = []
+  for (let turn = 0; turn < 5; turn++) {
+    const r = await fetch(`${p.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${p.key}` },
+      body: JSON.stringify({ model: p.model, messages, tools, tool_choice: "auto", max_tokens: 900, temperature: 0.2 }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!r.ok) throw new Error(`${p.name} API ${r.status}: ${(await r.text()).slice(0, 300)}`)
+    const data = (await r.json()) as { choices: { message: M }[] }
+    const msg = data.choices?.[0]?.message
+    if (!msg) throw new Error(`${p.name} API returned no answer`)
+    if (!msg.tool_calls?.length) return { text: (msg.content ?? "").trim() || "I couldn't find an answer to that.", links: dedupe(links) }
+    messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls })
+    for (const c of msg.tool_calls) {
+      let args: Record<string, unknown> = {}
+      try {
+        args = JSON.parse(c.function.arguments || "{}")
+      } catch {}
+      const out = await runTool(c.function.name, args, ctx).catch(() => ({ text: "That lookup failed.", links: [] }))
+      links.push(...(out.links ?? []))
+      messages.push({ role: "tool", tool_call_id: c.id, content: out.text })
+    }
+  }
+  return { text: "That took too many steps. Try asking a narrower question.", links: dedupe(links) }
+}
+
+export async function answerWithClaude(history: { role: "user" | "assistant"; text: string }[], ctx: Ctx): Promise<ToolOut> {
+  const { key, model } = assistantProvider()!
+  const tools = toolsFor(ctx.user.role)
+  const system = systemPrompt(ctx)
   const messages: Msg[] = history.slice(-10).map((m) => ({ role: m.role, content: m.text }))
   const links: Link[] = []
   for (let turn = 0; turn < 5; turn++) {

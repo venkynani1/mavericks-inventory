@@ -200,7 +200,7 @@ export function AssistantPanel({ name }: { name: string }) {
           </div>
           <p className="mt-1.5 flex items-center gap-1 px-1 text-[11px] text-muted-foreground">
             <SparklesIcon className="size-3" />
-            {mode === "claude" ? "Powered by Claude. Answers can be wrong; check important numbers." : "Built-in answers from live data."}
+            {mode && mode !== "built-in" ? `Powered by ${mode}. Answers can be wrong; check important numbers.` : "Built-in answers from live data."}
           </p>
         </form>
       </SheetContent>

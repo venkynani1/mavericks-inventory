@@ -28,7 +28,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 - **Inventory like large stores teams run it:** on hand, reserved and free-to-promise per item, days of cover, a stock movements ledger, and cycle counts whose differences go through approval.
 - **Engagement:** events (tech, non-tech, workshops, hackathons, codeathons…) with points per type set by the administrator; attendance by pasting IDs or uploading a sheet; points credited instantly; a reward at every 2,000 points up to 20,000; rewards handed out through a normal approved distribution; adjust and reset with reasons; a leaderboard.
 - **Employee portal:** each employee sees their own points, a progress track to 20,000 with a gift at every milestone, rewards, goodies received and events.
-- **Ask Mav:** an assistant in the top bar that answers questions from live data, limited to what the person's role may see. Works out of the box; uses Claude when `ANTHROPIC_API_KEY` is set.
+- **Ask Mav:** an assistant in the top bar that answers questions from live data, limited to what the person's role may see. Works out of the box; uses an AI model when a key is set: free Gemini (`GEMINI_API_KEY`) or Groq (`GROQ_API_KEY`), or Claude (`ANTHROPIC_API_KEY`).
 - **One-click demo sign-in** and a 3D gift-box mascot that says hello.
 - **Notifications** bell, **system status** page (regions and database latency) and engagement reports.
 - **Reports:** current stock availability, distributed stock, pending approval, approval history and the stock movement ledger, each exportable to Excel and PDF.
