@@ -2,7 +2,8 @@
 
 import bcrypt from "bcryptjs"
 import { randomBytes } from "crypto"
-import { revalidatePath, revalidateTag } from "next/cache"
+import { revalidatePath } from "next/cache"
+import { forget } from "@/lib/server/memo"
 import { isSharedDemo } from "@/lib/demo"
 import { LOOKUPS_TAG } from "@/lib/server/lookups"
 import { SETTINGS_TAG } from "@/lib/server/settings"
@@ -101,7 +102,7 @@ export async function saveSettings(input: z.input<typeof settingsSchema>) {
     const entries = Object.entries(v).map(([key, value]) => ({ key, value: String(value) }))
     await prisma.$transaction(entries.map((e) => prisma.setting.upsert({ where: { key: e.key }, create: { ...e, updatedBy: admin.id }, update: { value: e.value, updatedBy: admin.id } })))
     await audit(prisma, { actorId: admin.id, action: "SETTINGS.UPDATE", entity: "Setting", summary: `Workflow rules updated: ${v.approvalLevels} level(s), stock guard ${v.preventNegativeStock ? "on" : "off"}`, before, after: v })
-    revalidateTag(SETTINGS_TAG)
+    forget(SETTINGS_TAG)
     revalidatePath("/admin/workflow")
   }, "Workflow rules saved. New submissions use them; requests already in review keep their levels.")
 }
@@ -113,7 +114,7 @@ export async function addCategory(name: string) {
     if (n.length < 2) throw new AppError("Enter a category name.")
     const c = await prisma.category.create({ data: { name: n } })
     await audit(prisma, { actorId: admin.id, action: "MASTER.CATEGORY_ADD", entity: "Category", entityId: c.id, summary: `Added category ${n}` })
-    revalidateTag(LOOKUPS_TAG)
+    forget(LOOKUPS_TAG)
     revalidatePath("/admin/masters")
   }, "Category added")
 }
@@ -123,7 +124,7 @@ export async function toggleCategory(id: string, active: boolean) {
     const admin = await assertPermission("admin:manage")
     const c = await prisma.category.update({ where: { id }, data: { active } })
     await audit(prisma, { actorId: admin.id, action: "MASTER.CATEGORY_TOGGLE", entity: "Category", entityId: id, summary: `${active ? "Enabled" : "Disabled"} category ${c.name}` })
-    revalidateTag(LOOKUPS_TAG)
+    forget(LOOKUPS_TAG)
     revalidatePath("/admin/masters")
   })
 }
@@ -136,7 +137,7 @@ export async function addLookup(kind: "LOCATION" | "PURPOSE" | "UNIT", value: st
     const max = await prisma.lookup.aggregate({ where: { kind }, _max: { sortOrder: true } })
     const l = await prisma.lookup.create({ data: { kind, value: v, sortOrder: (max._max.sortOrder ?? 0) + 1 } })
     await audit(prisma, { actorId: admin.id, action: "MASTER.LOOKUP_ADD", entity: "Lookup", entityId: l.id, summary: `Added ${kind.toLowerCase()} ${v}` })
-    revalidateTag(LOOKUPS_TAG)
+    forget(LOOKUPS_TAG)
     revalidatePath("/admin/masters")
   }, "Added")
 }
@@ -146,7 +147,7 @@ export async function toggleLookup(id: string, active: boolean) {
     const admin = await assertPermission("admin:manage")
     const l = await prisma.lookup.update({ where: { id }, data: { active } })
     await audit(prisma, { actorId: admin.id, action: "MASTER.LOOKUP_TOGGLE", entity: "Lookup", entityId: id, summary: `${active ? "Enabled" : "Disabled"} ${l.kind.toLowerCase()} ${l.value}` })
-    revalidateTag(LOOKUPS_TAG)
+    forget(LOOKUPS_TAG)
     revalidatePath("/admin/masters")
   })
 }

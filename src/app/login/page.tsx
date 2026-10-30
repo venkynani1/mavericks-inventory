@@ -69,6 +69,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="flex flex-col justify-center px-5 py-10 sm:px-12">
         <div className="mx-auto flex w-full max-w-md flex-col gap-7">
           <Brand className="lg:hidden" />
+          {demo.length > 0 && <MavHello size="sm" className="-my-2 lg:hidden" message="Hi! I'm Mav." sub="Pick a role and look around." />}
           {noAccounts && (
             <Alert aria-live="polite">
               <AlertDescription>

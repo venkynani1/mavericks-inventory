@@ -1,5 +1,5 @@
 import "server-only"
-import { unstable_cache } from "next/cache"
+import { memo } from "./memo"
 import { prisma } from "@/lib/db"
 import { DEFAULT_RULES, type RewardRules } from "@/lib/points"
 
@@ -44,17 +44,8 @@ async function readSettings(): Promise<WorkflowSettings> {
   }
 }
 
-// Settings change rarely but are read on most pages, so they're cached across requests
-// and refreshed the moment an admin saves (revalidateTag(SETTINGS_TAG)).
-const loadSettings = unstable_cache(readSettings, ["workflow-settings"], { tags: [SETTINGS_TAG], revalidate: 300 })
-
-export async function getSettings(): Promise<WorkflowSettings> {
-  try {
-    return await loadSettings()
-  } catch {
-    // Outside a Next.js request (scripts, tests), read directly.
-    return readSettings()
-  }
+export function getSettings(): Promise<WorkflowSettings> {
+  return memo(SETTINGS_TAG, 60_000, readSettings)
 }
 
 /** Number of approval levels a request of this size needs. */

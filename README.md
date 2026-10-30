@@ -1,10 +1,12 @@
 # Mavericks Inventory
 
-Stock management for the Mavericks team's goodies, welcome kits, T-shirts and event merchandise. Executives record what came in and who received what, a manager approves it, and only then does the stock count change. Every movement is on a ledger, and every change is in the audit log.
+Stock management and employee engagement for the Mavericks team. Executives record the goodies, welcome kits, T-shirts and event merchandise that come in and go out, a manager approves it, and only then does the stock count change. Employees earn points for every event they attend, get a goodie at every 2,000 points up to 20,000, and see their progress in their own portal. Every movement is on a ledger, and every change is in the audit log.
 
 It replaces the Stock count / Recipient / Procurement Excel trackers, and those sheets upload into it without reformatting.
 
-![Overview](docs/screenshots/02-overview.png)
+![Home](docs/screenshots/02-overview.png)
+
+![Employee portal](docs/screenshots/48-employee-portal.png)
 
 **Guides**
 
@@ -15,13 +17,20 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvenkynani1%2Fmavericks-inventory&project-name=mavericks-inventory&repository-name=mavericks-inventory&env=AUTH_SECRET,SEED_DEMO_DATA,DEMO_MODE&envDescription=AUTH_SECRET%3A%20any%20random%20text%20of%2032%2B%20characters.%20SEED_DEMO_DATA%20and%20DEMO_MODE%3A%20true%20for%20a%20demo%20with%20sample%20data%2C%20false%20for%20production.&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
 - **[BRD traceability](docs/BRD-TRACEABILITY.md):** where each requirement in the BRD is met
+- **[Test plan](docs/TEST-PLAN.md):** automated checks, 20 real-world UAT scenarios, edge cases and a sign-off sheet
 
 ## What it does
 
 - **Executives** add stock items, record distributions and stock inward one at a time or by uploading Excel (up to 50,000 rows), and submit them for approval. Valid rows become a draft; problem rows come back in a downloadable error report.
 - **Managers** approve or return requests at level 1. **The Management Authority** approves at level 1 or gives the final level-2 approval when two levels are switched on.
 - **System Administrators** add users and set roles, choose one or two approval levels (optionally only above a unit threshold), and maintain the categories, purposes, locations and units.
-- **Overview:** stock on hand, handouts per week, where stock went by purpose, items to restock, and size runs for T-shirts and welcome kits.
+- **Home:** a worklist of what needs you (overdue approvals, returned requests, low stock, rewards due), number tiles with trends (on hand, reserved, free to promise, handed out, low or out, event points), engagement snapshot, charts, items to restock and size runs.
+- **Inventory like large stores teams run it:** on hand, reserved and free-to-promise per item, days of cover, a stock movements ledger, and cycle counts whose differences go through approval.
+- **Engagement:** events (tech, non-tech, workshops, hackathons, codeathons…) with points per type set by the administrator; attendance by pasting IDs or uploading a sheet; points credited instantly; a reward at every 2,000 points up to 20,000; rewards handed out through a normal approved distribution; adjust and reset with reasons; a leaderboard.
+- **Employee portal:** each employee sees their own points, a progress track to 20,000 with a gift at every milestone, rewards, goodies received and events.
+- **Ask Mav:** an assistant in the top bar that answers questions from live data, limited to what the person's role may see. Works out of the box; uses Claude when `ANTHROPIC_API_KEY` is set.
+- **One-click demo sign-in** and a 3D gift-box mascot that says hello.
+- **Notifications** bell, **system status** page (regions and database latency) and engagement reports.
 - **Reports:** current stock availability, distributed stock, pending approval, approval history and the stock movement ledger, each exportable to Excel and PDF.
 - **Company single sign-on** (Microsoft Entra ID or any OpenID Connect provider), built in and off until configured; roles come from Entra app roles.
 - Ctrl+K search, light and dark themes, phone layout.
@@ -45,7 +54,7 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 
 ## Try it: demo script
 
-With the demo data loaded (`npm run db:seed`) and `DEMO_MODE=true`, the sign-in page lists the demo accounts (password `Mavericks@2026`).
+With the demo data loaded (`npm run db:seed`), the sign-in page shows **Explore the demo**: select a role to sign in with one click (password `Mavericks@2026` if you type it).
 
 1. Sign in as the **Executive**. **Distributions → Record a distribution**: pick *Bluetooth Speaker*, quantity 2, a recipient, **Submit for approval**. Open **Stock → Bluetooth Speaker**: the available number hasn't changed yet.
 2. Try a quantity of 100000: the item turns red and **Submit** is disabled.
@@ -54,9 +63,11 @@ With the demo data loaded (`npm run db:seed`) and `DEMO_MODE=true`, the sign-in 
 5. As the Executive, **Stock → Add item** with an opening quantity of 150 and submit. Because it's over 100 units, the demo rules need two levels: the Manager approves level 1, then the **Management Authority** approves level 2 and the item appears in stock.
 6. **Distributions → Upload Excel** with an old Recipient sheet. Good rows become a draft; download the error report for the rest.
 7. **Reports**: download any report as Excel or PDF.
-8. Sign in as the **Admin**: add a user, sign in as them with the one-time password, and choose a new password.
+8. Sign in as the **Admin**: add a user, sign in as them with the one-time password, and choose a new password. Open **Points and rewards rules** and change the points for workshops or the goodie for a milestone.
+9. As the **Executive**, open **Events → New event** (a workshop), then paste a few employee IDs (for example `2000149999`). Points are credited and anyone crossing 2,000 points appears in **Rewards**. Select them and **Create distribution and submit**; the Manager approves and the rewards show as issued.
+10. Sign in as the **Employee** (Priyanka Sharma): her points, the progress track to 20,000 and her goodies. Select **Ask Mav** and ask "How many points do I have?".
 
-The same script runs automatically as an end-to-end test (`npm run e2e`, 41 checks in a real browser) on every push.
+The same script runs automatically as an end-to-end test (`npm run e2e`, 62 checks in a real browser; `npm test` runs 23 unit tests) on every push.
 
 ## Run it on your computer
 

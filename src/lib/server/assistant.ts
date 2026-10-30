@@ -271,9 +271,14 @@ export async function answerOffline(text: string, ctx: Ctx): Promise<ToolOut & {
   if (/leader|top (\d+ )?(employees|people|scorers)|rank/.test(t)) return call("leaderboard", { top: Number(t.match(/top (\d+)/)?.[1]) || 10 })
   if (/goodie|received|got|swag/.test(t) && (role === "EMPLOYEE" || /\bmy\b|\bi\b/.test(t))) return call("my_goodies")
   if (/point|milestone|progress|balance/.test(t)) {
-    const who = role === "EMPLOYEE" ? "" : (text.match(/(?:of|for)\s+([A-Za-z][A-Za-z .]+|\d{6,})\??$/i)?.[1] ?? text.match(/\b(\d{8,})\b/)?.[1] ?? "")
-    if (/reward|due|pending|hand/.test(t) && can(role, "rewards:view") && !who) return call("rewards_due")
-    return call("employee_points", { query: who.trim() })
+    const named = text.match(/(?:of|for|does|did|has)\s+([A-Z][A-Za-z.]+(?:\s+[A-Z][A-Za-z.]+)*|\d{6,})/)?.[1] ?? text.match(/\b(\d{8,})\b/)?.[1] ?? ""
+    if (role === "EMPLOYEE") {
+      const own = await call("employee_points", { query: "" })
+      const asksOther = named && !ctx.user.name.toLowerCase().includes(named.toLowerCase()) && named !== ctx.user.empId
+      return asksOther ? { ...own, text: `I can only show your own points, not anyone else's.\n${own.text}` } : own
+    }
+    if (/reward|due|pending|hand/.test(t) && can(role, "rewards:view") && !named) return call("rewards_due")
+    return call("employee_points", { query: named.trim() })
   }
   if (/reward/.test(t) && can(role, "rewards:view")) return call("rewards_due")
   if (/event|hackathon|workshop|codeathon|webinar|talk/.test(t)) return call("events", { when: /recent|last|past|previous|completed/.test(t) ? "recent" : "upcoming" })

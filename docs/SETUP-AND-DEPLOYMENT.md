@@ -23,8 +23,11 @@ This guide is for whoever hosts the application, whether that's on Vercel, AWS, 
 13. [Company single sign-on (SSO)](#13-company-single-sign-on-sso)
 14. [Check a deployed site](#14-check-a-deployed-site)
 15. [Appendix: SSO code reference](#15-appendix-sso-code-reference)
+16. [Performance: keep the app fast](#16-performance-keep-the-app-fast)
+17. [Architecture for developers](#17-architecture-for-developers)
+18. [Production readiness checklist](#18-production-readiness-checklist)
 
-**In a hurry?** To put a working demo on Vercel without installing anything or opening a database, follow [6A. Vercel + Neon](#6a-vercel--neon), then [14. Check a deployed site](#14-check-a-deployed-site).
+**In a hurry?** To put a working demo on Vercel without installing anything or opening a database, follow [6A. Vercel + Neon](#6a-vercel--neon), then [Make the link open to anyone](#make-the-link-open-to-anyone) and [14. Check a deployed site](#14-check-a-deployed-site).
 
 ---
 
@@ -41,9 +44,11 @@ flowchart LR
 | Part | What it is | Where it can run |
 | --- | --- | --- |
 | **Web app** | One Node.js 20+ process (Next.js). It serves the pages, the Excel uploads and the report downloads. It keeps no files on disk, so you can run one copy or several. | Vercel, AWS App Runner or ECS, Azure App Service or Container Apps, any server with Docker |
-| **Database** | PostgreSQL 14 or newer. Holds stock, requests, approvals, the ledger, users and the audit log. | Neon, Vercel Postgres, Amazon RDS / Aurora, Azure Database for PostgreSQL, a self-managed PostgreSQL |
+| **Database** | PostgreSQL 14 or newer. Holds stock, requests, approvals, the ledger, employees, events, points, rewards, users and the audit log. | Neon, Vercel Postgres, Amazon RDS / Aurora, Azure Database for PostgreSQL, a self-managed PostgreSQL |
 
 Nothing else is required: no email server, no file storage, no queue. Uploaded Excel files are read in memory and not stored.
+
+**Optional:** the assistant ("Ask Mav") works out of the box with built-in answers. If you add an `ANTHROPIC_API_KEY`, it uses Claude to understand free-form questions; it still only reads data through the same role-checked lookups. The app then also calls `https://api.anthropic.com` (allow it through any outbound firewall).
 
 **Time zone.** Dates on screen and in exports are shown in India time (Asia/Kolkata), whatever region the servers are in.
 
@@ -80,7 +85,12 @@ The app is configured only through these settings. On Vercel/AWS/Azure you enter
 | `AUTH_SECRET` | Yes | A random secret of at least 32 characters that signs sign-in sessions. Generate one (below). Changing it signs everyone out. | `x3N…` (64 random characters) |
 | `BOOTSTRAP_ADMIN_EMAIL` | For a production start | Email of the first System Administrator. Only works while the database has no users. | `inventory.admin@hexaware.com` |
 | `BOOTSTRAP_ADMIN_PASSWORD` | For a production start | A temporary password (10+ characters) for that first sign-in. The admin must change it straight away. | `Temp-Start-2026!` |
-| `DEMO_MODE` | No | `true` shows the demo accounts on the sign-in page. Use `false` in production. | `false` |
+| `DEMO_MODE` | No | Demo sign-in buttons show automatically when the demo accounts exist. `false` hides them, and also lets the demo accounts' passwords and roles be changed (they're locked otherwise, so a shared demo link keeps working). Use `false` in production. | `false` |
+| `DEMO_PASSWORD` | No | The password the one-click demo buttons use, if you seeded with a different `SEED_PASSWORD`. | `Mavericks@2026` |
+| `ANTHROPIC_API_KEY` | No | Turns on Claude for the assistant. Without it the assistant uses built-in answers. Keep it in the secret store. | `sk-ant-…` |
+| `ASSISTANT_MODEL` | No | Claude model for the assistant. | `claude-haiku-5-5` (default) or `claude-sonnet-5-5` |
+| `DB_POOL_SIZE` | No | Database connections per app instance (default 10). Pages run several queries side by side; a small pool makes them queue. Use your provider's **pooled** address with it. | `10` |
+| `SSO_DEFAULT_ROLE` | No (SSO) | Role given to people who sign in with SSO but have no app role in the directory. `EMPLOYEE` lets every employee see their own points. Empty refuses them. | `EMPLOYEE` |
 | `SEED_PASSWORD` | No | Password given to the demo users when you load demo data. | `Mavericks@2026` |
 | `SEED_DEMO_DATA` | No (Vercel only) | `true` makes the Vercel build load the demo data into an empty database. Without it, the build only creates the standard lists. It never touches a database that already has users. | `true` for a demo, unset for production |
 | `APP_URL` | For SSO | The site's public address, used to build the SSO return address. | `https://inventory.example.com` |
@@ -249,12 +259,12 @@ About 10 minutes, all in the browser: no database tool, no command line. Vercel 
    | `BOOTSTRAP_ADMIN_PASSWORD` | (not needed) | A temporary password, 10+ characters |
 
 4. Click **Deploy**. **This first build is expected to fail** with "No database is connected to this project". That's fine: the database comes next.
-5. Open the project → **Storage** tab → **Create Database** → **Neon** (Serverless Postgres) → **Continue**. Choose the region **Mumbai (ap-south-1)** if offered (closest to the app's `bom1` region), the free plan is enough for a demo, give it a name (`mavericks-inventory-db`) → **Create**.
+5. Open the project → **Storage** tab → **Create Database** → **Neon** (Serverless Postgres) → **Continue**. Note the **region** you choose (Mumbai `ap-south-1` is closest to Chennai users); you'll set the app's region to match in [Match the regions](#match-the-regions-important-for-speed). The free plan is enough for a demo, give it a name (`mavericks-inventory-db`) → **Create**.
 6. On the database page, **Connect Project** → choose `mavericks-inventory` and tick **Production** and **Preview** → **Connect**. This adds `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the project. You don't copy anything.
 7. **Deployments** → the failed deployment → **⋯ → Redeploy**. Watch **Building**: you should see `All migrations have been successfully applied`, then `Seeded 43 items…` (demo) or `Reference data is in place` (production), then the site build.
 8. When it says **Ready**, open the address (for example `https://mavericks-inventory.vercel.app`) and add `/api/health`. You should see `{"status":"ok","db":"ok",…}`.
 9. Sign in:
-   - **Demo:** the sign-in page lists the demo accounts (password `Mavericks@2026`).
+   - **Demo:** the sign-in page shows **Explore the demo**: select a role (Executive, Manager, Management Authority, Administrator, Employee) and you're signed in with one click. The password for all of them is `Mavericks@2026`.
    - **Production:** sign in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, choose a new password, then follow [section 5](#5-load-data-production-or-demo).
 10. Check the site: [section 14](#14-check-a-deployed-site).
 
@@ -274,7 +284,27 @@ If the button's database step doesn't appear (Vercel changes its marketplace fro
 - **Preview deployments** (from branches other than `main`) are protected by Vercel sign-in by default. Test on the production address.
 - **Large uploads:** the upload function may run up to 300 seconds (set in `vercel.json`). If Vercel rejects the deploy because your plan allows less, lower that number in `vercel.json`.
 - **If you prefer your own Neon project** instead of the integration, create it as in [Option 1](#option-1-neon-simplest-works-best-with-vercel) and add `DATABASE_URL` (pooled) and `DIRECT_URL` (direct) yourself in step 3.
-- **Region:** `vercel.json` runs the app in Mumbai (`bom1`). Keep the database in the same region for speed.
+- **Updating an existing demo:** when a new version adds tables (for example events and points), the build applies them and, on a demo database that has no employees yet, adds the demo employees, events, points and the `employee@mavericks.demo` login. Your existing requests and stock are kept.
+
+#### Make the link open to anyone
+
+By default Vercel protects some addresses with "Vercel Authentication", so people you share a link with are asked to sign in to Vercel. To give out a link that opens straight to the app's own sign-in page:
+
+1. Share the **production address**: project → **Settings → Domains**, the one ending in `.vercel.app` without random letters (for example `https://mavericks-inventory.vercel.app`). Addresses like `mavericks-inventory-abc123-yourname.vercel.app` are individual deployments and are protected.
+2. If even the production address asks for a Vercel login: project → **Settings → Deployment Protection** → **Vercel Authentication** → set it to **Disabled** (or "Only Preview Deployments") → **Save**.
+3. Check it in a private/incognito window: the address should open the Mavericks sign-in page with **Explore the demo**.
+
+People still need a Mavericks account (or the demo buttons) to see data; turning off Vercel Authentication only removes Vercel's own login in front of the app. For production, keep the app's SSO on instead.
+
+#### Match the regions (important for speed)
+
+Each page asks the database 3 to 8 questions. If the app runs in one region and the database in another (for example app in Washington, database in Mumbai), every question crosses the world and pages take 2 to 3 seconds. In the same region they take a fraction of a second.
+
+1. Find the database region: **Storage** → your Neon database → region (for example `aws-ap-south-1`, `aws-us-east-1`). After deploying, the app's **Administration → System status** page also shows it, with the measured round trip.
+2. Project → **Settings → Functions → Function Region** → pick the matching one: `ap-south-1` → **Mumbai (bom1)**, `ap-southeast-1` → **Singapore (sin1)**, `us-east-1` → **Washington, D.C. (iad1)**, `us-east-2` → **Cleveland (cle1)**, `eu-central-1` → **Frankfurt (fra1)**. **Save**, then **Deployments → ⋯ → Redeploy**.
+3. Open **System status** again: the round trip should be under 10 ms and "Same region" should say **Yes**.
+
+The repository doesn't pin a region in `vercel.json`, so the dashboard setting is the one that counts.
 
 ### 6B. AWS
 
@@ -580,7 +610,7 @@ sequenceDiagram
   A->>U: Session cookie, open the app
 ```
 
-- **Who gets in:** only people Entra says have one of the app roles (`Inventory.Executive`, `Inventory.Manager`, `Inventory.Authority`, `Inventory.Admin`). Anyone else sees "You don't have access to Mavericks Inventory yet" and the attempt is written to the audit log.
+- **Who gets in:** only people Entra says have one of the app roles (`Inventory.Executive`, `Inventory.Manager`, `Inventory.Authority`, `Inventory.Admin`, `Inventory.Employee`). With `SSO_DEFAULT_ROLE=EMPLOYEE`, everyone else in the company gets the employee portal (their own points and goodies only). Otherwise anyone else sees "You don't have access to Mavericks Inventory yet" and the attempt is written to the audit log.
 - **First sign-in:** an account is created automatically with the role from Entra (`SSO_AUTO_CREATE`). People who already have an account are matched by email and linked.
 - **Role changes:** if IT moves someone from Executive to Manager in Entra, the app applies it at their next sign-in (`SSO_ROLES_FROM_IDP`). Each change is in the audit log.
 - **Leavers:** when IT disables the account in Entra, they can't sign in any more. Admins can also deactivate them in the app, which takes effect immediately.
@@ -613,6 +643,7 @@ You need someone with the **Application Developer** or **Cloud Application Admin
 | Inventory Manager | Users/Groups | `Inventory.Manager` | Approves level 1 |
 | Inventory Management Authority | Users/Groups | `Inventory.Authority` | Approves level 1 or 2 |
 | Inventory Administrator | Users/Groups | `Inventory.Admin` | Users, rules and master data |
+| Inventory Employee | Users/Groups | `Inventory.Employee` | Own points, rewards and goodies only |
 
 Or paste this into **Manifest** under `"appRoles"` (generate new GUIDs for the `id` fields, e.g. with `New-Guid` in PowerShell):
 
@@ -621,7 +652,8 @@ Or paste this into **Manifest** under `"appRoles"` (generate new GUIDs for the `
   { "allowedMemberTypes": ["User"], "displayName": "Inventory Executive", "value": "Inventory.Executive", "description": "Records stock and distributions", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000001" },
   { "allowedMemberTypes": ["User"], "displayName": "Inventory Manager", "value": "Inventory.Manager", "description": "Approves level 1", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000002" },
   { "allowedMemberTypes": ["User"], "displayName": "Inventory Management Authority", "value": "Inventory.Authority", "description": "Approves level 1 or 2", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000003" },
-  { "allowedMemberTypes": ["User"], "displayName": "Inventory Administrator", "value": "Inventory.Admin", "description": "Users, rules and master data", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000004" }
+  { "allowedMemberTypes": ["User"], "displayName": "Inventory Administrator", "value": "Inventory.Admin", "description": "Users, rules and master data", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000004" },
+  { "allowedMemberTypes": ["User"], "displayName": "Inventory Employee", "value": "Inventory.Employee", "description": "Own points, rewards and goodies only", "isEnabled": true, "id": "00000000-0000-0000-0000-000000000005" }
 ]
 ```
 
@@ -780,9 +812,10 @@ const DEFAULT_ROLE_MAP: Record<string, Role> = {
   "Inventory.Manager": "MANAGER",
   "Inventory.Authority": "AUTHORITY",
   "Inventory.Admin": "ADMIN",
+  "Inventory.Employee": "EMPLOYEE",
 }
 // If someone holds several roles, the most senior one wins.
-const ROLE_RANK: Role[] = ["ADMIN", "AUTHORITY", "MANAGER", "EXECUTIVE"]
+const ROLE_RANK: Role[] = ["ADMIN", "AUTHORITY", "MANAGER", "EXECUTIVE", "EMPLOYEE"]
 
 export type SsoConfig = {
   issuer: string
@@ -798,6 +831,8 @@ export type SsoConfig = {
   allowedDomains: string[]
   signOutEverywhere: boolean
   appUrl: string | null
+  /** Role for people with no app role in the identity provider (e.g. EMPLOYEE, so everyone can see their points). Empty = refuse. */
+  defaultRole: Role | null
 }
 
 const bool = (v: string | undefined, dflt: boolean) => (v === undefined || v === "" ? dflt : v.toLowerCase() === "true")
@@ -829,6 +864,7 @@ export function ssoConfig(): SsoConfig | null {
     allowedDomains: (process.env.SSO_ALLOWED_EMAIL_DOMAINS ?? "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean),
     signOutEverywhere: bool(process.env.SSO_SIGN_OUT_EVERYWHERE, false),
     appUrl: process.env.APP_URL?.trim().replace(/\/+$/, "") || null,
+    defaultRole: (["EMPLOYEE", "EXECUTIVE", "MANAGER", "AUTHORITY"] as Role[]).find((r) => r === process.env.SSO_DEFAULT_ROLE?.trim().toUpperCase()) ?? null,
   }
 }
 
@@ -1025,6 +1061,7 @@ import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { audit } from "@/lib/server/audit"
+import { linkEmployee } from "@/lib/server/portal"
 import { createSession } from "@/lib/server/session"
 import { SSO_COOKIE, SsoError, completeSignIn, ssoConfig, type SsoIdentity } from "@/lib/server/sso"
 
@@ -1058,6 +1095,7 @@ export async function GET(req: Request) {
     (await prisma.user.findFirst({ where: { email: { equals: identity.email, mode: "insensitive" } } }))
 
   if (!user) {
+    if (!identity.role && cfg.defaultRole) identity = { ...identity, role: cfg.defaultRole }
     if (!cfg.autoCreate || !identity.role) {
       await audit(prisma, { action: "USER.SSO_DENIED", entity: "User", summary: `SSO sign-in refused for ${identity.email}: no app role assigned (${identity.rawRoles.join(", ") || "none"})` })
       return fail("no_access")
@@ -1084,6 +1122,7 @@ export async function GET(req: Request) {
     updates.role = identity.role
   }
   user = await prisma.user.update({ where: { id: user.id }, data: updates })
+  await linkEmployee(user)
   await audit(prisma, { actorId: user.id, action: "USER.LOGIN", entity: "User", entityId: user.id, summary: `${user.name} signed in with ${cfg.providerName}` })
 
   await createSession({ id: user.id, role: user.role }, "sso")
@@ -1107,7 +1146,8 @@ SSO_ONLY="false"
 # SSO_AUTO_CREATE="true"
 # SSO_ROLES_FROM_IDP="true"
 # SSO_ROLE_CLAIM="roles"
-# SSO_ROLE_MAP='{"Inventory.Executive":"EXECUTIVE","Inventory.Manager":"MANAGER","Inventory.Authority":"AUTHORITY","Inventory.Admin":"ADMIN"}'
+# SSO_ROLE_MAP='{"Inventory.Executive":"EXECUTIVE","Inventory.Manager":"MANAGER","Inventory.Authority":"AUTHORITY","Inventory.Admin":"ADMIN","Inventory.Employee":"EMPLOYEE"}'
+# SSO_DEFAULT_ROLE="EMPLOYEE"   # everyone without an app role gets their own portal
 # SSO_SIGN_OUT_EVERYWHERE="false"
 ```
 
@@ -1118,3 +1158,82 @@ SSO_ONLY="false"
 ALTER TABLE "User" ADD COLUMN "ssoSubject" TEXT;
 CREATE UNIQUE INDEX "User_ssoSubject_key" ON "User"("ssoSubject");
 ```
+
+
+---
+
+## 16. Performance: keep the app fast
+
+What was done in the code:
+
+- **Fewer trips to the database.** The menu badge counts are one query. The approval queue checks stock for all requests in two queries instead of two per request. Settings and the lists people pick from are cached and refreshed the moment an administrator changes them.
+- **Queries run side by side.** Pages start all their queries at once, and the connection pool allows 10 at a time (`DB_POOL_SIZE`) so they don't queue.
+- **Nothing slow on the first paint.** The notification bell and the assistant load after the page appears. The 3D mascot downloads only on the pages that show it and is skipped for people who prefer reduced motion.
+- **Instant feedback.** A thin progress line appears the moment a link is clicked.
+
+Measured with a database 50 ms away (a typical cross-region gap): the approval queue went from 0.75 s to 0.4 s; most pages are 0.2 to 0.5 s. In the same region, pages are well under 0.2 s.
+
+What you do when hosting:
+
+| Do this | Why |
+| --- | --- |
+| Run the app and the database in the **same region** (see [Match the regions](#match-the-regions-important-for-speed); on AWS/Azure, the same region and virtual network) | Biggest single factor |
+| Use the **pooled** database address for `DATABASE_URL` (Neon `-pooler`, RDS Proxy, PgBouncer) | Many short-lived serverless functions share a few database connections |
+| Keep the Neon compute from sleeping in production (Neon: **Settings → Compute → Scale to zero: off**) | The first request after a sleep waits a second or two |
+| Watch **System status** and `/api/health` (it reports `latencyMs`) | Spot a slow database before users do |
+
+---
+
+## 17. Architecture for developers
+
+```mermaid
+flowchart TB
+  subgraph Browser
+    UI[Pages: React Server Components + small client islands]
+    Mav[Ask Mav panel]
+  end
+  subgraph App[Next.js app]
+    MW[middleware: session cookie check]
+    RSC[Server components: read data]
+    SA[Server actions: every change, permission checked]
+    API[/api: uploads, reports, templates, assistant, notifications, health, SSO/]
+    WF[workflow.ts: maker-checker, stock posting, ledger]
+    RW[rewards.ts: points, milestones, reward fulfilment]
+    AS[assistant.ts: role-scoped tools]
+  end
+  DB[(PostgreSQL)]
+  LLM[Claude API, optional]
+  UI --> MW --> RSC --> DB
+  UI --> SA --> WF --> DB
+  SA --> RW --> DB
+  Mav --> API --> AS --> DB
+  AS -. only if ANTHROPIC_API_KEY .-> LLM
+```
+
+**Data model (main tables).** `StockItem`, `Request` (types: distribution, stock inward, new stock items, stock count), its lines (`DistributionLine`, `ReceiptLine`, `StockCountLine`), `ApprovalEvent`, `LedgerEntry` (insert-only), `User`, `AuditLog`. Engagement: `Employee` (points, lifetime points, cycle), `EventType` (points per type), `Event`, `Attendance` (one row per person per event), `PointsTransaction` (every change with the balance after), `RewardMilestone` (threshold, goodie), `RewardEarned` (due, in approval, issued, cancelled; linked to the distribution line that handed it out).
+
+**Rules that keep the numbers right.**
+
+- Stock changes only on final approval, inside one database transaction that locks the rows, writes the ledger and refuses to go below zero.
+- Points change only through `applyPoints`, which locks the employee row (`SELECT … FOR UPDATE`), applies the cap, writes the points history and creates any milestone rewards. Two executives marking attendance at the same moment can't lose points.
+- A person can be marked present at an event only once (database unique key). Removing them reverses exactly the points they got.
+- A reward is issued only when the distribution carrying it is approved; deleting or editing that draft puts the reward back to due.
+- Every permission is checked on the server (`assertPermission`), never only by hiding a button. Employees are redirected away from every staff page by the layout.
+
+**Assistant scope.** Each assistant tool declares which roles may use it; the list offered for a question is filtered by the signed-in role, and each tool checks again when it runs (an employee's points lookup only ever reads their own record). Claude, when enabled, can only call these tools; it never sees the database directly.
+
+**Tests.** `npm test` (unit: points rules, access control), `npm run e2e` (62 checks through a real browser), `npm run sso-check` (16 checks against a mock identity provider). See [TEST-PLAN.md](TEST-PLAN.md).
+
+---
+
+## 18. Production readiness checklist
+
+- [ ] Database in the same region as the app, pooled `DATABASE_URL`, automated backups on (point-in-time restore of 7+ days), and one restore tested
+- [ ] `AUTH_SECRET` random, 32+ characters, stored in the secret store; `DEMO_MODE=false`; `SEED_DEMO_DATA` unset
+- [ ] First administrator created with `BOOTSTRAP_ADMIN_*`, then those two settings removed
+- [ ] SSO switched on ([section 13](#13-company-single-sign-on-sso)) with app roles assigned in Entra ID; `SSO_DEFAULT_ROLE=EMPLOYEE` if every employee should see their points; consider `SSO_ONLY=true` after a week
+- [ ] Approval rules, points per event type, milestone goodies, step and maximum set by the administrator
+- [ ] Custom domain with HTTPS; Vercel Authentication off for the production domain only if the app's own sign-in is the gate you want
+- [ ] `/api/health` added to an uptime monitor; alerts go to the support team
+- [ ] If `ANTHROPIC_API_KEY` is used: key in the secret store, usage limits set in the Anthropic console, outbound access to `api.anthropic.com` allowed
+- [ ] UAT run against [TEST-PLAN.md](TEST-PLAN.md) scenarios and signed off

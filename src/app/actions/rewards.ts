@@ -1,6 +1,7 @@
 "use server"
 
-import { revalidatePath, revalidateTag } from "next/cache"
+import { revalidatePath } from "next/cache"
+import { forget } from "@/lib/server/memo"
 import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { run } from "@/lib/server/action"
@@ -252,7 +253,7 @@ export async function saveRewardRules(input: z.input<typeof rulesSchema>) {
       await tx.rewardMilestone.createMany({ data: wanted.filter((t) => !have.has(t)).map((t) => ({ threshold: t, title: `${t.toLocaleString("en-IN")} points` })) })
       await audit(tx, { actorId: admin.id, action: "REWARD_RULES.UPDATE", entity: "Setting", summary: `Milestone every ${v.step} points up to ${v.cap}; leaderboard for employees ${v.leaderboardForEmployees ? "on" : "off"}`, after: v })
     })
-    revalidateTag(SETTINGS_TAG)
+    forget(SETTINGS_TAG)
     revalidatePath("/admin/rewards")
   }, "Reward rules saved.")
 }

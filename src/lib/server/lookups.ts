@@ -1,5 +1,5 @@
 import "server-only"
-import { unstable_cache } from "next/cache"
+import { memo } from "./memo"
 import { prisma } from "@/lib/db"
 
 export const LOOKUPS_TAG = "lookups"
@@ -18,13 +18,7 @@ async function load() {
   }
 }
 
-// Master data changes rarely, so forms read it from a cache that's refreshed whenever an admin edits it.
-const cached = unstable_cache(load, ["lookups"], { tags: [LOOKUPS_TAG], revalidate: 600 })
-
-export async function getLookups() {
-  try {
-    return await cached()
-  } catch {
-    return load()
-  }
+// Master data changes rarely, so forms read it from a short in-memory cache, cleared when an admin edits it.
+export function getLookups() {
+  return memo(LOOKUPS_TAG, 60_000, load)
 }
