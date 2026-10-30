@@ -91,9 +91,12 @@ How points work: each event type is worth a fixed number of points that the admi
 7. As **Manager**, approve that request. Back in **Milestone rewards**, the **Issued** tab now lists them, and the goodies are off the shelf.
 8. Optional: on the event page, remove someone with the minus button and a reason. Exactly their 400 points are reversed.
 9. **Leaderboard:** podium, last 90 days, by department. **Say:** "Good for recognising people at town halls."
-10. **Plan events from Excel:** on **Events**, select **Upload events**, then **Template**. Upload the filled sheet: future events land under **Upcoming**, bad rows are listed, and uploading the same sheet again creates no duplicates.
-11. **Winners and prizes:** open **Hackathon: Agentic AI**. Under **Winners and prizes** the demo already has a winner (Amazon voucher ₹5,000), a runner-up (smart watch) and others. Select **Add winner**: employee ID, position **Winner**, prize **Voucher** ₹5,000. The 500 bonus points are filled in from the position. **Say:** "Prizes can be Amazon vouchers, goodies from stock, or anything else like a trophy."
-12. **Event prizes** (menu): **Goodies to hand out**, tick them, **Create distribution and submit**; the manager approves and stock drops. **Vouchers and other**, tick them, **Mark issued** with the Amazon order number. **Export for finance** gives the full list.
+**Events from Excel, winners and prizes** (continue as Executive):
+
+1. **Plan events from Excel:** on **Events**, select **Upload events**, then **Template**. Upload the filled sheet (Event name, Event type, Date, plus optional Location, Organiser, Points). Future events land under **Upcoming**, rows with problems are listed, and uploading the same sheet again creates no duplicates.
+2. **Winners and prizes:** open **Hackathon: Agentic AI**. Under **Winners and prizes** the demo already has a winner (Amazon voucher ₹5,000), a runner-up (smart watch) and others. Select **Add winner**: employee ID, position **Winner**, prize **Voucher** ₹5,000. The 500 bonus points fill in from the position. **Say:** "Prizes can be Amazon vouchers, goodies from stock, or anything else like a trophy."
+3. **Event prizes** (menu): on **Goodies to hand out**, tick them and select **Create distribution and submit**; the manager approves and stock drops. On **Vouchers and other**, tick them, select **Mark issued** and type the Amazon order number. **Export for finance** gives the full list.
+4. Sign in as **Employee** later and show **Your prizes** on Goodies received: "On the way", then "Received".
 
 ## Part 4, Employee: the portal
 
@@ -148,5 +151,6 @@ Ask Mav (top bar) answers from live data and only within the role signed in. Sho
 - **Can stock go negative?** No. It's checked on submit and again at approval, so two approvals at the same moment can't hand out the same units.
 - **Can we delete or edit history?** No. The ledger, points history and approval history can't be changed; corrections are new entries. Every change is in the audit log.
 - **Can employees sign in with their Hexaware account?** Yes, with company single sign-on (Microsoft Entra ID), set up in the [deployment guide](SETUP-AND-DEPLOYMENT.md#13-company-single-sign-on-sso). Roles come from Entra; everyone else can default to the employee portal.
+- **Can we load the quarter's event calendar at once?** Yes: Events, Upload events, using the template. Events appear under Upcoming for staff and employees.
 - **Can we bring in the old Excel trackers?** Yes. The Stock count, Recipient and Procurement sheets upload as they are.
 - **Where does it run in production?** Vercel, AWS or Azure, with a PostgreSQL database. Steps are in the [setup and deployment guide](SETUP-AND-DEPLOYMENT.md).
