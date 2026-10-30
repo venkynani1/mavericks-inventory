@@ -29,10 +29,26 @@ const ok = (name) => {
 const step = (title) => console.log(`\n${title}`)
 
 const browser = await chromium.launch()
+// Newer Chrome returns a Promise from scroll methods. Imitate that everywhere, so code that
+// accidentally returns one from a React effect fails here instead of in users' browsers.
+const promiseScroll = () => {
+  for (const m of ["scrollIntoView", "scrollTo", "scrollBy"]) {
+    const orig = Element.prototype[m]
+    Element.prototype[m] = function (...a) {
+      orig.apply(this, a)
+      return Promise.resolve()
+    }
+  }
+}
+const newContext = async (opts) => {
+  const ctx = await browser.newContext(opts)
+  await ctx.addInitScript(promiseScroll)
+  return ctx
+}
 const VIEW = { width: 1366, height: 860 }
 
 async function signIn(email, password = PASSWORD, opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.viewport ?? VIEW, colorScheme: opts.dark ? "dark" : "light", acceptDownloads: true })
+  const ctx = await newContext({ viewport: opts.viewport ?? VIEW, colorScheme: opts.dark ? "dark" : "light", acceptDownloads: true })
   const page = await ctx.newPage()
   page.on("pageerror", (e) => console.log(`    page error (${email}): ${e.message}`))
   await page.goto(`${BASE}/login`)
@@ -112,7 +128,7 @@ try {
   // ------------------------------------------------------------------
   step("Sign-in and access control")
   {
-    const ctx = await browser.newContext({ viewport: VIEW })
+    const ctx = await newContext({ viewport: VIEW })
     const page = await ctx.newPage()
     await go(page, "/stock")
     assert.match(page.url(), /\/login\?next=%2Fstock/)
@@ -448,7 +464,7 @@ try {
   await dialog(admin).waitFor({ state: "detached" })
   await shot(admin, "30-users")
   {
-    const ctx = await browser.newContext()
+    const ctx = await newContext()
     const p = await ctx.newPage()
     await go(p, "/login")
     if (!(await p.locator("#email").isVisible())) await p.getByText("Sign in with email and password").click()
@@ -605,7 +621,7 @@ try {
   // ------------------------------------------------------------------
   step("Employee portal, one-click demo sign-in and the assistant")
   {
-    const ctx = await browser.newContext({ viewport: VIEW })
+    const ctx = await newContext({ viewport: VIEW })
     const emp = await ctx.newPage()
     await go(emp, "/login")
     await Promise.all([emp.waitForURL(/\/me$/, { timeout: 60_000 }), emp.getByRole("button", { name: /Sign in as Employee/ }).click()])

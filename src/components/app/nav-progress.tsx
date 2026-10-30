@@ -12,7 +12,9 @@ export function NavProgress() {
   const search = useSearchParams()
   const [active, setActive] = useState(false)
 
-  useEffect(() => setActive(false), [pathname, search])
+  useEffect(() => {
+    setActive(false)
+  }, [pathname, search])
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {

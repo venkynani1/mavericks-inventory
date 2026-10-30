@@ -117,7 +117,10 @@ export function AssistantPanel({ name }: { name: string }) {
     if (!open || suggestions.length) return
     fetch("/api/assistant").then((r) => r.json()).then((d) => (setSuggestions(d.suggestions ?? []), setMode(d.mode ?? ""))).catch(() => {})
   }, [open, suggestions.length])
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs, busy])
+  // Braces matter: newer browsers return a Promise from scrollIntoView, and an effect must not return anything but a cleanup function.
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [msgs, busy])
 
   const ask = async (q: string) => {
     const question = q.trim()

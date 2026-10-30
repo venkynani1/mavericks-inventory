@@ -20,7 +20,9 @@ function webglOk() {
 /** The 3D gift-box mascot with a speech bubble. Falls back to a flat icon without WebGL. */
 export function MavHello({ message, sub, celebrate, className, size = "md", tone = "light" }: { message: string; sub?: string; celebrate?: boolean; className?: string; size?: "sm" | "md" | "lg"; tone?: "light" | "dark" }) {
   const [gl, setGl] = useState<boolean | null>(null)
-  useEffect(() => setGl(webglOk()), [])
+  useEffect(() => {
+    setGl(webglOk())
+  }, [])
   const box = size === "lg" ? "size-56 sm:size-64" : size === "sm" ? "size-28" : "size-40 sm:size-44"
   return (
     <div className={cn("flex items-center gap-2", className)}>

@@ -5,7 +5,9 @@ import { reportClientError } from "@/components/app/error-report"
 
 /** Last-resort screen. Shows the actual error so it can be reported, and logs it on the server. */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => reportClientError(error, "global-error"), [error])
+  useEffect(() => {
+    reportClientError(error, "global-error")
+  }, [error])
   return (
     <html lang="en">
       <body style={{ fontFamily: "system-ui, sans-serif", padding: 32, color: "#121b2e", background: "#f3f5f8" }}>
