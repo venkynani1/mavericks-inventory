@@ -1,6 +1,11 @@
 // Points rules, kept free of database code so they can be unit-tested (see tests/points.test.ts).
 
-export type RewardRules = { step: number; cap: number }
+export type RewardRules = {
+  step: number
+  cap: number
+  /** false when the points store is used: points are spent on goodies instead of earning a reward at each milestone. */
+  milestones?: boolean
+}
 
 export const DEFAULT_RULES: RewardRules = { step: 2000, cap: 20000 }
 
@@ -13,7 +18,7 @@ export function applyWithinCap(current: number, delta: number, cap: number) {
 /** Milestones passed when moving from `before` to `after` (only upward moves earn milestones). */
 export function crossedMilestones(before: number, after: number, rules: RewardRules) {
   const out: number[] = []
-  if (after <= before) return out
+  if (after <= before || rules.milestones === false) return out
   for (let t = rules.step; t <= rules.cap; t += rules.step) if (t > before && t <= after) out.push(t)
   return out
 }

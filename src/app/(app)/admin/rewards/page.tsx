@@ -9,12 +9,15 @@ import { CategoryBadge } from "@/components/app/rewards-display"
 import { EventTypeDialog, MilestoneDialog, ResetAllDialog, RewardRulesForm } from "@/components/app/rewards-forms"
 import { PositionDialog } from "@/components/app/prize-forms"
 import { awardPositions } from "@/lib/server/awards"
+import { storeCatalogue } from "@/lib/server/store"
+import { StoreItemDialog } from "@/components/app/store-forms"
 
 export const metadata: Metadata = { title: "Points and rewards rules" }
 
 export default async function RewardRulesPage() {
   await requirePermission("rewards:configure")
-  const [positions, settings, types, milestones, items, withPoints, dueBy] = await Promise.all([
+  const [catalogue, positions, settings, types, milestones, items, withPoints, dueBy] = await Promise.all([
+    storeCatalogue(),
     awardPositions(),
     getSettings(),
     prisma.eventType.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { name: "asc" }], include: { _count: { select: { events: true } } } }),
@@ -27,9 +30,45 @@ export default async function RewardRulesPage() {
 
   return (
     <>
-      <PageHeader title="Points and rewards rules" description="How many points each kind of event is worth, how often a goodie is earned, and which goodie each milestone gets. Every change is in the audit log." />
+      <PageHeader title="Points and rewards rules" description="How many points each kind of event is worth, the goodies employees can get with their points, and prize bonuses. Every change is in the audit log." />
       <div className="grid gap-5 xl:grid-cols-[1fr_24rem]">
         <div className="flex min-w-0 flex-col gap-5">
+          {settings.rewardMode === "store" && (
+            <Panel className="overflow-hidden">
+              <PanelHeader title="Points store" description="Goodies employees can order with their points, and what each costs. An employee can order as soon as they have enough, or keep saving for a bigger one." actions={<StoreItemDialog stockItems={items} />} />
+              {catalogue.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="pl-5">Goodie</TableHead>
+                      <TableHead className="text-right">Points</TableHead>
+                      <TableHead className="hidden sm:table-cell">Stock item</TableHead>
+                      <TableHead className="hidden text-right sm:table-cell">In stock</TableHead>
+                      <TableHead className="w-12 pr-5"><span className="sr-only">Edit</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {catalogue.map((c) => (
+                      <TableRow key={c.id} className={c.active ? "" : "opacity-60"}>
+                        <TableCell className="pl-5">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{c.name}{!c.active && " (hidden)"}</span>
+                            {c.description && <span className="text-xs text-muted-foreground">{c.description}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="num text-right font-semibold">{fmtNum(c.pointsCost)}</TableCell>
+                        <TableCell className="hidden text-muted-foreground sm:table-cell">{c.stockItem.name}</TableCell>
+                        <TableCell className={`num hidden text-right sm:table-cell ${c.stockItem.availableQty <= 0 ? "text-rejected" : ""}`}>{fmtNum(c.stockItem.availableQty)}</TableCell>
+                        <TableCell className="pr-5"><StoreItemDialog stockItems={items} item={{ id: c.id, name: c.name, description: c.description, stockItemId: c.stockItemId, pointsCost: c.pointsCost, active: c.active }} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="px-5 py-8 text-center text-sm text-muted-foreground">No goodies in the store yet. Add the first one, for example a mug for 2,000 points.</p>
+              )}
+            </Panel>
+          )}
           <Panel className="overflow-hidden">
             <PanelHeader title="Points per event type" description="Executives pick a type when they create an event. They can override points for a single flagship event." actions={<EventTypeDialog />} />
             <Table>
@@ -61,6 +100,7 @@ export default async function RewardRulesPage() {
             </Table>
           </Panel>
 
+          {settings.rewardMode === "milestones" && (
           <Panel className="overflow-hidden">
             <PanelHeader title="Milestone goodies" description="What people receive at each milestone. Leave it to be decided and the executive picks one per person when handing out." />
             <Table>
@@ -95,6 +135,7 @@ export default async function RewardRulesPage() {
               </TableBody>
             </Table>
           </Panel>
+          )}
         </div>
         <div className="flex flex-col gap-5">
           <Panel className="overflow-hidden">
@@ -110,8 +151,8 @@ export default async function RewardRulesPage() {
             </ul>
           </Panel>
           <Panel>
-            <PanelHeader title="Milestones" description="Applies from the next points credited." />
-            <RewardRulesForm step={settings.rewards.step} cap={settings.rewards.cap} leaderboard={settings.leaderboardForEmployees} />
+            <PanelHeader title="How employees get goodies" description="Applies from the next points credited." />
+            <RewardRulesForm step={settings.rewards.step} cap={settings.rewards.cap} leaderboard={settings.leaderboardForEmployees} mode={settings.rewardMode} />
           </Panel>
           <Panel className="border-rejected/30">
             <PanelHeader title="Start a new programme year" description="Resets every employee's points to zero. Earned rewards are kept." />

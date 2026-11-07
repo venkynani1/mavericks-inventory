@@ -14,7 +14,7 @@ import { Pager } from "@/components/app/pager"
 export const metadata: Metadata = { title: "Stock movements" }
 const PAGE = 50
 type SP = { q?: string; type?: string; from?: string; to?: string; page?: string }
-const LABEL = { OPENING: "Opening", RECEIPT: "Inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Count adjustment" } as const
+const LABEL = { OPENING: "Opening", RECEIPT: "Inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Count adjustment", REDEMPTION: "Points store" } as const
 
 export default async function Movements({ searchParams }: { searchParams: Promise<SP> }) {
   await requirePermission("inventory:view")
@@ -38,7 +38,7 @@ export default async function Movements({ searchParams }: { searchParams: Promis
         actions={<Button variant="outline" asChild><a href={exportHref}><DownloadIcon data-icon="inline-start" />Export</a></Button>}
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Segmented param="type" options={[{ value: "all", label: "All" }, { value: "RECEIPT", label: "Inward" }, { value: "DISTRIBUTION", label: "Distribution" }, { value: "ADJUSTMENT", label: "Adjustments" }, { value: "OPENING", label: "Opening" }]} />
+        <Segmented param="type" options={[{ value: "all", label: "All" }, { value: "RECEIPT", label: "Inward" }, { value: "DISTRIBUTION", label: "Distribution" }, { value: "ADJUSTMENT", label: "Adjustments" }, { value: "REDEMPTION", label: "Points store" }, { value: "OPENING", label: "Opening" }]} />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <DateFilter param="from" label="From" />
           <DateFilter param="to" label="To" />
@@ -79,7 +79,7 @@ export default async function Movements({ searchParams }: { searchParams: Promis
                   <TableCell className="hidden md:table-cell">
                     <span className="inline-flex items-center gap-1.5 text-sm"><Icon className={cn("size-4", qty >= 0 ? "text-approved" : "text-rejected")} />{LABEL[r.type]}</span>
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">{r.request ? <Link href={`/requests/${r.request.id}`} className="num text-sm hover:text-primary">{r.request.number}</Link> : "—"}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{r.request ? <Link href={`/requests/${r.request.id}`} className="num text-sm hover:text-primary">{r.request.number}</Link> : r.type === "REDEMPTION" && r.note ? <span className="num text-sm text-muted-foreground">{r.note.match(/RDM-\d{4}-\d+/)?.[0] ?? "Store order"}</span> : "—"}</TableCell>
                   <TableCell className={cn("num text-right font-semibold", qty >= 0 ? "text-approved" : "text-rejected")}>{qty > 0 ? "+" : ""}{fmtNum(qty)}</TableCell>
                   <TableCell className="num hidden text-right sm:table-cell">{fmtNum(r.balanceAfter)}</TableCell>
                   <TableCell className="hidden pr-5 text-muted-foreground xl:table-cell">{r.actor.name}</TableCell>

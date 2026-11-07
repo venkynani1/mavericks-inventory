@@ -6,7 +6,11 @@ import "server-only"
  * disk or in the hosting platform). Admin changes clear it straight away on the instance that made
  * them; other instances pick the change up within `ttlMs`.
  */
-const store = new Map<string, { at: number; value: Promise<unknown> }>()
+// Kept on globalThis: Next.js can load this module more than once in one process (pages and server
+// actions are bundled separately), and an admin's change must clear the copy that pages read.
+type Entry = { at: number; value: Promise<unknown> }
+const g = globalThis as typeof globalThis & { __miMemo?: Map<string, Entry> }
+const store: Map<string, Entry> = (g.__miMemo ??= new Map())
 
 export function memo<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const hit = store.get(key)

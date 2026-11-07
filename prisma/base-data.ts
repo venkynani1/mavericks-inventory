@@ -14,6 +14,8 @@ export const BASE_SETTINGS = {
   rewardStep: "2000",
   rewardCap: "20000",
   leaderboardForEmployees: "true",
+  // "store": employees spend points in the points store; "milestones": a goodie is due at each milestone.
+  rewardMode: "store",
 }
 export const BASE_CATEGORIES = ["Apparel", "Welcome Kits", "Drinkware", "Bags", "Electronics", "Stationery", "General"]
 export const BASE_LOOKUPS: Record<"LOCATION" | "PURPOSE" | "UNIT", string[]> = {

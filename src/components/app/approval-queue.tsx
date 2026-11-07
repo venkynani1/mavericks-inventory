@@ -27,6 +27,8 @@ export type QueueRow = {
   lines: number
   shortfalls: number
   approvedEarlierByMe: boolean
+  /** Set for goodies requested for an event: its date and whether it has already happened. */
+  event?: { date: string; passed: boolean } | null
 }
 
 export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
@@ -96,6 +98,11 @@ export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
                     <span className="num text-xs text-muted-foreground">
                       {r.type} {r.number}, level {r.level} of {r.required}
                     </span>
+                    {r.event && (
+                      <span className={cn("text-xs", r.event.passed ? "font-medium text-rejected" : "text-primary")}>
+                        {r.event.passed ? `Event passed on ${r.event.date}` : `For an event on ${r.event.date}: approve before it`}
+                      </span>
+                    )}
                   </Link>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">{r.maker}</TableCell>

@@ -5,18 +5,26 @@ import { can, type Role } from "@/lib/roles"
 export type NavIcon =
   | "home" | "items" | "movements" | "count" | "inward" | "distribution" | "requests" | "approvals"
   | "events" | "employees" | "leaderboard" | "rewards" | "reports" | "users" | "rules" | "rewardRules"
-  | "masters" | "audit" | "system" | "me" | "assistant" | "prizes"
+  | "masters" | "audit" | "system" | "me" | "assistant" | "prizes" | "store" | "orders"
 
-export type NavItem = { href: string; label: string; icon: NavIcon; badge?: "approvals" | "mine" | "rewardsDue" | "prizesDue"; exact?: boolean }
+export type NavItem = { href: string; label: string; icon: NavIcon; badge?: "approvals" | "mine" | "rewardsDue" | "prizesDue" | "ordersDue"; exact?: boolean }
 export type NavGroup = { label: string; items: NavItem[] }
 
-export function navFor(role: Role): NavGroup[] {
+/** `mode` is the rewards setting: "store" (points store) or "milestones" (a goodie at every milestone). */
+export function navFor(role: Role, mode: "store" | "milestones" = "store"): NavGroup[] {
+  const store = mode === "store"
   if (role === "EMPLOYEE")
     return [
       {
         label: "My space",
         items: [
           { href: "/me", label: "My dashboard", icon: "me", exact: true },
+          ...(store
+            ? [
+                { href: "/me/store", label: "Points store", icon: "store" as const },
+                { href: "/me/orders", label: "My orders", icon: "orders" as const },
+              ]
+            : []),
           { href: "/me/history", label: "Points history", icon: "movements" },
           { href: "/me/goodies", label: "Goodies received", icon: "rewards" },
           { href: "/me/events", label: "Events", icon: "events" },
@@ -48,7 +56,9 @@ export function navFor(role: Role): NavGroup[] {
       items: [
         { href: "/events", label: "Events", icon: "events" },
         { href: "/employees", label: "Employees and points", icon: "employees" },
-        { href: "/rewards", label: "Milestone rewards", icon: "rewards", badge: exec ? "rewardsDue" : undefined },
+        ...(store
+          ? [{ href: "/redemptions", label: "Store orders", icon: "orders" as const, badge: exec ? ("ordersDue" as const) : undefined }]
+          : [{ href: "/rewards", label: "Milestone rewards", icon: "rewards" as const, badge: exec ? ("rewardsDue" as const) : undefined }]),
         { href: "/prizes", label: "Event prizes", icon: "prizes", badge: exec ? "prizesDue" : undefined },
         { href: "/leaderboard", label: "Leaderboard", icon: "leaderboard" },
       ],
@@ -74,6 +84,6 @@ export const EMPLOYEE_PATHS = ["/me", "/profile"]
 export const employeeAllowed = (path: string) => EMPLOYEE_PATHS.some((p) => path === p || path.startsWith(p + "/"))
 
 export function findNav(role: Role, path: string) {
-  for (const g of navFor(role)) for (const i of g.items) if (i.exact ? path === i.href : path === i.href || path.startsWith(i.href + "/")) return { group: g.label, item: i }
+  for (const g of [...navFor(role, "store"), ...navFor(role, "milestones")]) for (const i of g.items) if (i.exact ? path === i.href : path === i.href || path.startsWith(i.href + "/")) return { group: g.label, item: i }
   return null
 }

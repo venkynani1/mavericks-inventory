@@ -34,6 +34,16 @@ describe("navigation", () => {
     expect(employeeAllowed("/stock")).toBe(false)
     expect(employeeAllowed("/media")).toBe(false)
   })
+  it("the points store replaces milestone rewards in the menu when it's on", () => {
+    const hrefs = (r: Role, m: "store" | "milestones") => navFor(r, m).flatMap((g) => g.items.map((i) => i.href))
+    expect(hrefs("EMPLOYEE", "store")).toEqual(expect.arrayContaining(["/me/store", "/me/orders"]))
+    expect(hrefs("EMPLOYEE", "milestones")).not.toContain("/me/store")
+    expect(hrefs("EXECUTIVE", "store")).toContain("/redemptions")
+    expect(hrefs("EXECUTIVE", "store")).not.toContain("/rewards")
+    expect(hrefs("EXECUTIVE", "milestones")).toContain("/rewards")
+    expect(employeeAllowed("/me/store")).toBe(true)
+    expect(employeeAllowed("/redemptions")).toBe(false)
+  })
   it("approvals appear only for approvers, administration only for admins and auditors", () => {
     const has = (r: Role, href: string) => navFor(r).some((g) => g.items.some((i) => i.href === href))
     expect(has("MANAGER", "/approvals")).toBe(true)

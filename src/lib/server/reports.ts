@@ -166,7 +166,7 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
         prisma.ledgerEntry.findMany({ where, include: { stockItem: true, request: true, actor: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit }),
         prisma.ledgerEntry.count({ where }),
       ])
-      const T = { OPENING: "Opening", RECEIPT: "Inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Adjustment" } as const
+      const T = { OPENING: "Opening", RECEIPT: "Inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Adjustment", REDEMPTION: "Points store" } as const
       return {
         title: meta.title,
         columns: [

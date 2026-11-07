@@ -54,6 +54,7 @@ enum LedgerType {
   RECEIPT
   DISTRIBUTION
   ADJUSTMENT
+  REDEMPTION // goodie handed over for a points-store order
 }
 
 model User {
@@ -139,6 +140,8 @@ model StockItem {
   ledger            LedgerEntry[]
   milestones        RewardMilestone[]
   awards            EventAward[]
+  catalogItems      RewardCatalogItem[]
+  redemptionLines   RedemptionLine[]
 
   @@index([status])
   @@index([product])
@@ -161,6 +164,9 @@ model Request {
   totalQty      Int           @default(0)
   lineCount     Int           @default(0)
   uploadBatchId String?
+  /// Set when the request is the goodies for an event (approved before the event) or goodies returned after it.
+  eventId       String?
+  event         Event?        @relation(fields: [eventId], references: [id])
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -172,6 +178,7 @@ model Request {
   ledger            LedgerEntry[]
 
   @@index([status, type])
+  @@index([eventId])
   @@index([createdById])
   @@index([createdAt])
 }
@@ -335,11 +342,12 @@ model Employee {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user         User?
-  attendance   Attendance[]
-  transactions PointsTransaction[]
-  rewards      RewardEarned[]
-  awards       EventAward[]
+  user             User?
+  attendance       Attendance[]
+  transactions     PointsTransaction[]
+  rewards          RewardEarned[]
+  awards           EventAward[]
+  redemptionOrders RedemptionOrder[]
 
   @@index([points])
   @@index([name])
@@ -393,6 +401,7 @@ model Event {
   attendance   Attendance[]
   transactions PointsTransaction[]
   awards       EventAward[]
+  requests     Request[]
 
   @@index([date])
 }
@@ -417,6 +426,8 @@ enum PointsType {
   RESET
   REVERSAL
   AWARD // bonus points for a podium place or prize at an event
+  REDEMPTION // points spent on a store order
+  REFUND // points given back when a store order is rejected or cancelled
 }
 
 enum PrizeKind {
@@ -460,6 +471,8 @@ model EventAward {
   voucherRef      String?
   description     String? // what an OTHER prize is, or a note
   bonusPoints     Int               @default(0)
+  /// True when a goodie prize was taken from the event's goodies approved before the event (no second approval).
+  fromAllocation  Boolean           @default(false)
   status          AwardStatus       @default(PENDING)
   requestId       String?
   issuedAt        DateTime?
@@ -529,4 +542,72 @@ model RewardEarned {
 
   @@unique([employeeId, threshold, cycle])
   @@index([status])
+}
+
+/// A goodie in the points store: employees spend this many points on it. Kept by an administrator.
+model RewardCatalogItem {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  stockItemId String
+  stockItem   StockItem        @relation(fields: [stockItemId], references: [id])
+  pointsCost  Int
+  active      Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  lines       RedemptionLine[]
+
+  @@index([active, pointsCost])
+}
+
+enum RedemptionStatus {
+  PLACED // points deducted, waiting for the team
+  ACCEPTED // team accepted; goodies set aside (stock out) and a pickup slot given
+  COLLECTED // employee picked the goodies up
+  REJECTED // team turned it down; points refunded
+  CANCELLED // employee cancelled before acceptance; points refunded
+}
+
+/// An employee's checkout from the points store.
+model RedemptionOrder {
+  id             String           @id @default(cuid())
+  number         String           @unique // RDM-2026-000012
+  employeeId     String
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  status         RedemptionStatus @default(PLACED)
+  totalPoints    Int
+  placedById     String
+  note           String? // from the employee
+  pickupLocation String?
+  pickupAt       DateTime?
+  pickupNote     String?
+  decidedById    String?
+  decidedAt      DateTime?
+  rejectReason   String?
+  collectedAt    DateTime?
+  collectedById  String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  lines          RedemptionLine[]
+
+  @@index([status, createdAt])
+  @@index([employeeId])
+}
+
+model RedemptionLine {
+  id            String            @id @default(cuid())
+  orderId       String
+  order         RedemptionOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  catalogItemId String
+  catalogItem   RewardCatalogItem @relation(fields: [catalogItemId], references: [id])
+  stockItemId   String
+  stockItem     StockItem         @relation(fields: [stockItemId], references: [id])
+  /// Name and price when the order was placed (later catalogue edits don't change past orders).
+  name          String
+  pointsCost    Int
+  quantity      Int
+
+  @@index([orderId])
+  @@index([stockItemId])
 }

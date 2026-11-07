@@ -38,15 +38,17 @@ How each requirement in the *Mavericks Inventory BRD* is met.
 - Global search (Ctrl K) across items and requests.
 - Light and dark themes, keyboard navigation, mobile layout.
 - Production start without demo accounts: the first administrator is created from a one-time bootstrap sign-in, and one-time passwords must be replaced before anything else.
-- Automated tests: 73 end-to-end checks in a real browser, 23 unit tests and 16 SSO checks, run by GitHub Actions on every push.
+- Automated tests: 89 end-to-end checks in a real browser, 27 unit tests and 16 SSO checks, run by GitHub Actions on every push.
 - Illustrated user guide and a step-by-step setup and deployment guide for Vercel, AWS, Azure and self-hosting.
 - Company single sign-on (Microsoft Entra ID / any OpenID Connect provider) with role mapping from app roles, SSO-only mode and an administrator fallback; tested against a bundled mock provider.
 - Vercel deployment that creates the database tables and optional demo data during the build, plus a GitHub workflow that runs the full test against a live site.
-- Employee engagement: events with points per event type (admin-configurable), attendance by paste or Excel, points credited instantly with a full history, a goodie at every 2,000 points up to 20,000 (step and cap configurable), rewards fulfilled through the approved distribution flow, adjust and reset with reasons, leaderboard.
-- Employee portal (role Employee, also via SSO `Inventory.Employee` or `SSO_DEFAULT_ROLE`): own points, progress, rewards, goodies and events only.
+- Employee engagement: events with points per event type (admin-configurable), attendance by paste or Excel, points credited instantly with a full history, points capped at 20,000, an optional milestone scheme (a goodie at every 2,000 points, fulfilled through the approved distribution flow), adjust and reset with reasons, leaderboard.
+- Employee portal (role Employee, also via SSO `Inventory.Employee` or `SSO_DEFAULT_ROLE`): own points, the points store and their orders, goodies and events only.
 - "Ask Mav" assistant limited to the user's role, with built-in answers or Claude.
 - Enterprise inventory views: reserved and free-to-promise stock, days of cover, stock movements ledger page, cycle counts with approval.
 - Notifications bell, system status page with region and latency diagnostics, one-click demo sign-in, 3D mascot.
 - Event winners and prizes: positions (Winner, Runner-up, Second runner-up, Top performer, Special mention; admin-configurable bonus points), prizes as Amazon or other vouchers, goodies from stock (approved distribution) or other; vouchers marked issued with an order reference; finance export; prizes in the employee portal.
 - Events planned in bulk from an Excel sheet, with validation, duplicate protection and a template.
 - Bulk uploads with templates for employees (add or update) and for an event's winners and prizes.
+- Goodies for an event approved before it: the executive requests items and quantities for an upcoming event, the manager approves, stock goes down at approval; requests after the event date are refused and flagged; goodie prizes for that event are issued from its approved goodies with no second approval; unused goodies are returned to stock through an approved inward (`src/lib/server/event-goodies.ts`).
+- Points store: an administrator-managed catalogue of goodies with points prices; employees order from a cart and the points are deducted at once (2,400 − 2,000 = 400); the engagement team accepts with a pickup place, date and time (stock goes down then, with a ledger entry) or rejects with a reason (points refunded); collection is recorded; orders keep the price they were placed at (`src/lib/server/store.ts`, `RewardCatalogItem`, `RedemptionOrder`). A switch keeps the older milestone scheme available.

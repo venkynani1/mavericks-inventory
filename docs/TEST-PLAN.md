@@ -19,10 +19,10 @@ This document says what is tested, how, and what a business user should try befo
 | Level | Tool | What it proves | Count |
 | --- | --- | --- | --- |
 | Static | TypeScript (`npm run typecheck`), ESLint (`npm run lint`) | No type errors, no unsafe patterns | whole codebase |
-| Unit | Vitest (`npm test`) | Points rules (cap, milestones, progress, overrides) and role permissions (who may do what, which menu each role sees) | 23 tests |
-| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, points, rewards, stock counts, the employee portal, the assistant, notifications | 73 checks |
+| Unit | Vitest (`npm test`) | Points rules (cap, milestones, spending and refunds, progress, overrides) and role permissions (who may do what, which menu each role sees, store or milestone menus) | 27 tests |
+| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, event goodies approved before the event, points, the points store, rewards, stock counts, the employee portal, the assistant, notifications | 89 checks |
 | Single sign-on | Playwright + mock identity provider (`npm run sso-check`) | Code flow with PKCE, state and nonce; account creation and linking; role sync; employee role; refusals; SSO-only mode | 16 checks |
-| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 73 checks |
+| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 89 checks |
 
 ## 2. How to run the tests
 
@@ -53,9 +53,13 @@ The end-to-end suite, in order (each line is one check):
 
 **Drafts, bulk approval, reports, administration:** drafts saved and deleted (kept in the audit trail) · four requests approved at once · all reports open and export to Excel and PDF · a request exports · admin creates a user with a one-time password · forced password change · deactivated user refused · approval rules and master data save · audit log lists events.
 
-**Events, points and rewards:** admin adds an employee · admin adjusts points with a reason (in history) · executive creates an event · pasting IDs marks attendance, credits points, reports unknown IDs and flags milestones · marking twice is skipped · 1,900 + 400 = 2,300 · the 2,000 reward goes onto a distribution with the milestone goodie · approval issues it · removing an attendee reverses exactly their points · admin changes event-type points · leaderboard ranks people.
+**Events, points and rewards:** admin switches to milestone rewards for this section · admin adds an employee · admin adjusts points with a reason (in history) · executive creates an event · pasting IDs marks attendance, credits points, reports unknown IDs and flags milestones · marking twice is skipped · 1,900 + 400 = 2,300 · the 2,000 reward goes onto a distribution with the milestone goodie · approval issues it · removing an attendee reverses exactly their points · admin changes event-type points · admin switches back to the points store and the menus follow · leaderboard ranks people.
 
 **Events upload, winners and prizes:** an events sheet creates upcoming events and lists bad rows · the same sheet again creates no duplicates · uploaded events show under Upcoming · a winner gets an Amazon voucher, is marked present and gets bonus points · a runner-up gets a goodie from stock · bonus points credited (1,900 + 400 + 500 = 2,800) · an employee sheet adds and updates people and lists bad rows · a winners sheet records vouchers, goodies and other prizes at once and lists bad rows · a voucher is marked issued with its order reference · a goodie prize goes out through an approved distribution and stock drops by 1 · the employee sees their prizes.
+
+**Event goodies, approved before the event:** the executive requests goodies for an upcoming event and stock doesn't move · the manager's queue says it's for an event and must be approved before it · approval takes the goodies out of stock · a goodie prize at that event is issued from its approved goodies with no second approval and no second stock drop · unused goodies go back to stock once the return is approved · goodies can't be requested for an event that has passed.
+
+**Points store:** admin adds a goodie with its points price · the cart shows the points left after the order (for example 6,400 − 2,000 = 4,400) and goodies out of reach can't be added · placing the order deducts the points at once · the team accepts with a pickup place and time and the goodie leaves stock · the employee sees where and when to collect · the team marks it collected · a rejected order refunds the points with the reason in the history · the assistant tells the employee what their points can get.
 
 **Stock count and movements:** a count sends only the difference for approval · approval adjusts stock by the difference · the adjustment appears in stock movements · system status shows regions and latency.
 
@@ -80,7 +84,13 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | 9 | Monthly reward handout | Executive, Manager | Rewards → Due → select 25 people → Create distribution and submit → approve | One request with 25 lines; rewards Issued; goodies off the shelf; employees see "Received" |
 | 9a | Hackathon results | Executive, Manager | On the event, add Winner (Amazon ₹5,000), Runner-up (smart watch), Special mention (certificate). Hand the watch out from Event prizes; mark the voucher issued with the Amazon order number | Bonus points credited; watch leaves stock after approval; voucher shows Issued with the reference; finance export lists all three |
 | 9b | Next quarter's events | Executive | Upload an events sheet with 15 events, one with a misspelt type | 14 created and listed under Upcoming; the bad row named; a second upload creates nothing |
-| 10 | Goodie for 18,000 not decided yet | Executive | Select someone due at 18,000 | Row asks to choose a goodie; can't submit until chosen |
+| 9c | Goodies for next week's hackathon | Executive, Manager | Open the upcoming event, Request goodies: 120 badges, 10 T-shirts, 2 smart watches. Manager approves. After the event, add the winners (smart watch for the runner-up) and hand the prize out; return 30 unused badges | Stock drops at approval, before the event; the watch prize is issued from the event's goodies with no new request; badges come back after the return is approved |
+| 9d | Goodies requested too late | Executive | Try to request goodies for an event that was yesterday | Not allowed: goodies must be approved before the event |
+| 9e | Employee spends points | Employee, Executive | With 2,400 points, order a 2,000-point mug | Balance shows 400 straight away; the order is in Store orders; the team accepts with a pickup slot; the employee sees the place and time; after pickup, Collected |
+| 9f | Employee saves for a bigger goodie | Employee | With 2,400 points, open the store | 2,000-point goodies say "You can get this"; the 4,000 backpack shows 1,600 more needed and can't be added |
+| 9g | Out of stock after ordering | Executive | Reject an order for a goodie that ran out, with a reason | Points refunded; the employee sees the reason |
+| 9h | Admin changes the store | Administrator | Raise the backpack from 4,000 to 4,500; hide the diary | New orders use 4,500; orders already placed keep 4,000; the diary disappears from the store |
+| 10 | Goodie for 18,000 not decided yet (milestone scheme) | Executive | Select someone due at 18,000 | Row asks to choose a goodie; can't submit until chosen |
 | 11 | Admin changes workshop points from 400 to 450 | Administrator | Edit the event type | New attendance gets 450; past attendance unchanged; change in the audit log |
 | 12 | Special recognition | Administrator | Adjust +500 points for an organiser with a reason | Balance and history updated; reward created if a milestone is crossed |
 | 13 | Someone hits 20,000 | Administrator | Adjust a person near the cap by more than the gap | Stops at 20,000 with "limited by the cap" in history |
@@ -104,6 +114,13 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | Points adjustment would go below zero | Stops at 0 |
 | Event cancelled after people were marked | Not allowed until attendees are removed (so points are reversed first) |
 | Reward draft deleted or its line removed | Reward goes back to Due |
+| Two orders at once take an employee below zero | The employee's row is locked while an order is placed; the second order is refused with the points needed |
+| Several employees order the last few of a goodie | Goodies in orders not yet accepted count as taken; the store shows what's left, and an order for more is refused |
+| A goodie runs out before the team accepts | Accept is refused naming the item; the team can receive stock first or reject (points refunded) |
+| Admin changes a goodie's price after orders were placed | Orders keep the name and price they were placed at |
+| Event date passes while its goodies request waits | Shown as "Event passed" in Approvals; new requests for that event are refused |
+| Prize goodies exceed what the event had approved | The covered ones are issued from the event's goodies; the rest go on a distribution for approval |
+| Return more than is left from an event | Refused, with the number left |
 | Demo account password change on the public demo | Refused, so the shared demo keeps working |
 | Database unreachable | `/api/health` returns 503 with a clear code; pages show a friendly error |
 | Assistant asked about something outside the app | Politely declines |

@@ -109,6 +109,12 @@ async function approveOnPage(page, remarks = "") {
   await page.waitForLoadState("networkidle")
 }
 
+/** Link to a past event on the events list (the first one), or null. */
+async function firstEventLink(page) {
+  const href = await page.locator("main a[href^='/events/']").first().getAttribute("href").catch(() => null)
+  return href
+}
+
 async function writeXlsx(file, sheetName, rows) {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet(sheetName)
@@ -506,6 +512,22 @@ try {
       await approveOnPage(authority)
     }
   }
+  /** Switches the admin's "Points store" setting on or off. */
+  const setStoreMode = async (on) => {
+    await go(admin, "/admin/rewards")
+    const sw = admin.locator("#rr-mode")
+    // Click until the switch shows the wanted state (a click before React hydrates is lost).
+    for (let i = 0; i < 10 && (await sw.getAttribute("aria-checked")) !== String(on); i++) {
+      await sw.click()
+      await admin.waitForTimeout(300)
+    }
+    assert.equal(await sw.getAttribute("aria-checked"), String(on))
+    await admin.getByRole("button", { name: "Save rules" }).click()
+    await admin.getByText("Reward rules saved.").first().waitFor()
+  }
+  // This section covers the milestone scheme (a goodie due at every 2,000 points); the points store is tested later.
+  await setStoreMode(false)
+  ok("admin switches to milestone rewards")
   const empId = `29${Date.now().toString().slice(-8)}`
   const empName = tag("Lakshmi Narayanan")
   await go(admin, "/employees")
@@ -589,6 +611,10 @@ try {
   await dialog(admin).getByRole("button", { name: "Save" }).click()
   await dialog(admin).waitFor({ state: "detached" })
   ok("admin changes the points for an event type")
+  await setStoreMode(true)
+  await go(exec, "/")
+  await exec.getByRole("link", { name: "Store orders" }).first().waitFor()
+  ok("admin switches back to the points store, and the menu follows")
   await go(admin, "/leaderboard")
   await admin.getByRole("heading", { name: "Leaderboard" }).waitFor()
   await shot(admin, "44-leaderboard")
@@ -706,14 +732,167 @@ try {
     await go(exec, `/prizes?q=2000149999`)
     await shot(exec, "56-prizes")
     await exec.getByRole("checkbox", { name: /Select Priyanka Sharma/ }).first().click()
-    await Promise.all([exec.waitForURL(/\/requests\//, { timeout: 60_000 }), exec.getByRole("button", { name: "Create distribution and submit" }).click()])
+    await Promise.all([exec.waitForURL(/\/requests\//, { timeout: 60_000 }), exec.getByRole("button", { name: "Hand out" }).click()])
     const prizeReq = new URL(exec.url()).pathname
     await approveFully(prizeReq)
     assert.equal(await availableOn(exec, speakerId), speakerPrize - 1)
     await go(exec, `/prizes?view=issued&q=2000149999`)
     await exec.getByText("Bluetooth Speaker").first().waitFor()
     ok("a goodie prize goes out through an approved distribution and stock drops by 1")
+
+    // ---- goodies for an upcoming event, approved before it
+    const badgeId = await itemIdByName(exec, "Plastic Pin Badges")
+    const speakerEv0 = await availableOn(exec, speakerId)
+    const badges0 = await availableOn(exec, badgeId)
+    await go(exec, "/events?view=upcoming")
+    await Promise.all([exec.waitForURL(/\/events\/[a-z0-9]+$/), exec.getByRole("link", { name: upName }).first().click()])
+    const upPath = new URL(exec.url()).pathname
+    await exec.getByRole("button", { name: "Request goodies" }).click()
+    await dialog(exec).getByLabel("Goodie 1").click()
+    await exec.getByRole("option", { name: /^Plastic Pin Badges/ }).click()
+    await dialog(exec).getByLabel("Quantity 1").fill("50")
+    await dialog(exec).getByRole("button", { name: "Add another goodie" }).click()
+    await dialog(exec).getByLabel("Goodie 2").click()
+    await exec.getByRole("option", { name: /^Bluetooth Speaker/ }).first().click()
+    await dialog(exec).getByLabel("Quantity 2").fill("1")
+    await shot(exec, "64-event-goodies")
+    await Promise.all([exec.waitForURL(/\/requests\//, { timeout: 60_000 }), dialog(exec).getByRole("button", { name: "Send for approval" }).click()])
+    await exec.getByText("approve before the event").first().waitFor()
+    const goodiesReq = new URL(exec.url()).pathname
+    assert.equal(await availableOn(exec, badgeId), badges0)
+    ok("the executive asks for an upcoming event's goodies; stock doesn't move yet")
+    await go(manager, "/approvals")
+    await manager.getByText(/For an event on .*approve before it/).first().waitFor()
+    await shot(manager, "65-approvals-event-goodies")
+    ok("the manager's queue shows it's for an event and must be approved before it")
+    await approveFully(goodiesReq)
+    assert.equal(await availableOn(exec, badgeId), badges0 - 50)
+    assert.equal(await availableOn(exec, speakerId), speakerEv0 - 1)
+    ok("approval before the event takes the goodies out of stock")
+
+    await go(exec, upPath)
+    await exec.getByRole("button", { name: "Add winner" }).click()
+    await dialog(exec).locator("#aw-emp").fill(empId)
+    await dialog(exec).locator("#aw-kind").click()
+    await exec.getByRole("option", { name: /Goodie from stock/ }).click()
+    await dialog(exec).locator("#aw-item").click()
+    await exec.getByRole("option", { name: /Bluetooth Speaker/ }).first().click()
+    await dialog(exec).getByRole("button", { name: "Save winner" }).click()
+    await dialog(exec).waitFor({ state: "detached", timeout: 60_000 })
+    await go(exec, `/prizes?q=${empId}`)
+    await exec.getByRole("checkbox", { name: `Select ${empName}` }).click()
+    await exec.getByRole("button", { name: "Hand out" }).click()
+    await exec.getByText("issued from the event's approved goodies").first().waitFor({ timeout: 60_000 })
+    assert.equal(await availableOn(exec, speakerId), speakerEv0 - 1)
+    ok("a goodie prize at that event comes out of its approved goodies: no second approval, no second stock drop")
+
+    await go(exec, upPath)
+    await shot(exec, "66-event-goodies-panel")
+    await exec.getByRole("button", { name: "Return unused" }).click()
+    await dialog(exec).getByLabel(/Plastic Pin Badges/).fill("20")
+    await Promise.all([exec.waitForURL(/\/requests\//, { timeout: 60_000 }), dialog(exec).getByRole("button", { name: "Send for approval" }).click()])
+    await approveFully(new URL(exec.url()).pathname)
+    assert.equal(await availableOn(exec, badgeId), badges0 - 30)
+    ok("unused goodies go back to stock once the return is approved")
+    await go(exec, "/events?view=completed&q=Agentic")
+    const pastEv = await firstEventLink(exec)
+    if (pastEv) {
+      await go(exec, pastEv)
+      assert.equal(await exec.getByRole("button", { name: "Request goodies" }).count(), 0)
+      await exec.getByText("new requests are closed").first().waitFor()
+      ok("goodies can't be requested for an event that has already happened")
+    }
   }
+
+  // ------------------------------------------------------------------
+  step("Points store: catalogue, cart, order, pickup")
+  {
+    const mugId = await itemIdByName(exec, "Bot All Coffee Mug - NA - Blue")
+    const storeItem = tag("Mavericks mug")
+    await go(admin, "/admin/rewards")
+    await admin.getByRole("button", { name: "Add goodie" }).click()
+    await dialog(admin).locator("#si-stock").click()
+    await admin.getByRole("option", { name: /^Bot All Coffee Mug - NA - Blue/ }).click()
+    await dialog(admin).locator("#si-name").fill(storeItem)
+    await dialog(admin).locator("#si-cost").fill("2000")
+    await dialog(admin).getByRole("button", { name: "Save" }).click()
+    await dialog(admin).waitFor({ state: "detached" })
+    await admin.getByText(storeItem).first().waitFor()
+    await shot(admin, "67-store-catalogue")
+    ok("admin adds a goodie to the points store with its points price")
+
+    const ctx = await newContext({ viewport: VIEW })
+    const emp = await ctx.newPage()
+    emp.on("pageerror", (e) => console.log(`    page error (employee): ${e.message}`))
+    await go(emp, "/login")
+    await Promise.all([emp.waitForURL(/\/me$/, { timeout: 60_000 }), emp.getByRole("button", { name: /Sign in as Employee/ }).click()])
+    await go(emp, "/me/store")
+    const pts = async () => Number((await emp.locator("aside[aria-label='Your cart'] dl dd").first().innerText()).replace(/[^0-9]/g, ""))
+    const before = await pts()
+    assert.ok(before >= 2000, `demo employee needs at least 2,000 points (has ${before})`)
+    const card = emp.locator("li").filter({ hasText: storeItem })
+    await card.getByRole("button", { name: "Add to cart" }).click()
+    const watch = emp.locator("li").filter({ hasText: "Smart watch" })
+    if (before - 2000 < 16000 && (await watch.count())) assert.ok(await watch.getByRole("button", { name: "Add to cart" }).isDisabled(), "can't add a goodie you can't afford")
+    const left = Number((await emp.locator("aside[aria-label='Your cart'] dl dd").nth(2).innerText()).replace(/[^0-9]/g, ""))
+    assert.equal(left, before - 2000)
+    await shot(emp, "68-points-store")
+    ok(`the cart shows the points left after the order (${before.toLocaleString("en-IN")} − 2,000 = ${left.toLocaleString("en-IN")}) and goodies out of reach can't be added`)
+    await Promise.all([emp.waitForURL(/\/me\/orders$/, { timeout: 60_000 }), emp.getByRole("button", { name: /^Place order for 2,000 points/ }).click()])
+    await emp.getByText("Order placed").first().waitFor()
+    const orderNo = (await emp.locator("article").first().getAttribute("aria-label")).replace("Order ", "")
+    await go(emp, "/me/store")
+    assert.equal(await pts(), before - 2000)
+    ok("placing the order deducts the points straight away")
+
+    const mug0 = await availableOn(exec, mugId)
+    await go(exec, "/redemptions")
+    const row = exec.getByRole("row").filter({ hasText: orderNo })
+    await row.waitFor()
+    await shot(exec, "69-store-orders")
+    await row.getByRole("button", { name: "Accept and set pickup" }).click()
+    await dialog(exec).locator("#pk-loc").fill("Chennai office, engagement desk (2nd floor)")
+    await shot(exec, "70-accept-pickup")
+    await dialog(exec).getByRole("button", { name: "Accept order" }).click()
+    await dialog(exec).waitFor({ state: "detached", timeout: 60_000 })
+    assert.equal(await availableOn(exec, mugId), mug0 - 1)
+    ok("the team accepts the order with a pickup place and time; the goodie leaves stock")
+    await go(emp, "/me/orders")
+    await emp.getByText("Collect your goodies").first().waitFor()
+    await emp.getByText("Chennai office, engagement desk (2nd floor)").first().waitFor()
+    await shot(emp, "71-my-orders")
+    ok("the employee sees where and when to collect it")
+    await go(exec, "/redemptions?view=pickup")
+    await exec.getByRole("row").filter({ hasText: orderNo }).getByRole("button", { name: "Mark collected" }).click()
+    await exec.getByText("Marked collected").first().waitFor()
+    await go(emp, "/me/orders")
+    await emp.locator("article").filter({ hasText: orderNo }).getByText("Collected").first().waitFor()
+    ok("the team marks it collected")
+
+    // A second order that the team rejects: points come back.
+    await go(emp, "/me/store")
+    await emp.locator("li").filter({ hasText: storeItem }).getByRole("button", { name: "Add to cart" }).click()
+    await Promise.all([emp.waitForURL(/\/me\/orders$/, { timeout: 60_000 }), emp.getByRole("button", { name: /^Place order/ }).click()])
+    const order2 = (await emp.locator("article").first().getAttribute("aria-label")).replace("Order ", "")
+    await go(exec, "/redemptions")
+    await exec.getByRole("row").filter({ hasText: order2 }).getByRole("button", { name: "Reject" }).click()
+    await dialog(exec).locator("#rj-reason").fill("Mugs are reserved for the town hall this week; please order again next week")
+    await dialog(exec).getByRole("button", { name: "Reject and refund" }).click()
+    await dialog(exec).waitFor({ state: "detached" })
+    await go(emp, "/me/store")
+    assert.equal(await pts(), before - 2000)
+    await go(emp, "/me/history")
+    await emp.getByText(new RegExp(`${order2} rejected`)).first().waitFor()
+    ok("a rejected order refunds the points, with the reason in the points history")
+
+    await go(emp, "/me")
+    await emp.getByRole("button", { name: "Open the assistant" }).first().click()
+    await emp.getByRole("button", { name: "What can I get with my points?" }).click()
+    await emp.getByText(/You have .*points/).first().waitFor({ timeout: 60_000 })
+    ok("the assistant tells the employee what their points can get")
+    await ctx.close()
+  }
+
 
   // ------------------------------------------------------------------
   step("Stock count and movements")

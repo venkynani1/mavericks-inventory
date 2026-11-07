@@ -132,6 +132,14 @@ export async function submitRequest(id: string, user: SessionUser, remarks?: str
     const req = await loadEditableRequest(tx, id, user)
     const { totalQty, lineCount } = await recomputeTotals(tx, id)
     if (lineCount === 0) throw new AppError("Add at least one line before submitting.")
+    if (req.eventId && req.type === "DISTRIBUTION") {
+      // Event goodies are approved before the event, not after it.
+      const ev = await tx.event.findUnique({ where: { id: req.eventId }, select: { date: true, status: true } })
+      const ist = (d: Date) => new Date(d.getTime() + 5.5 * 3600_000).toISOString().slice(0, 10)
+      if (ev?.status === "CANCELLED") throw new AppError("This event is cancelled.", 409)
+      if (ev && ist(ev.date) < ist(new Date()))
+        throw new AppError("This event has already happened. Goodies for an event need approval before it; record goodies already handed out as a normal distribution.", 409)
+    }
     if (req.type === "DISTRIBUTION" && settings.preventNegativeStock) {
       const issues = await availabilityShortfalls(tx, id)
       if (issues.length) throw new AppError(`Not enough stock. ${issues.slice(0, 3).join("; ")}${issues.length > 3 ? ` and ${issues.length - 3} more` : ""}.`, 409)

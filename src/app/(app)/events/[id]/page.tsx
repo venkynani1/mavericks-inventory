@@ -1,13 +1,14 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeftIcon, BanIcon, CalendarIcon, MapPinIcon, TrophyIcon, UserIcon } from "lucide-react"
+import { ArrowLeftIcon, BanIcon, CalendarIcon, GiftIcon, MapPinIcon, TrophyIcon, UserIcon } from "lucide-react"
 import { awardPositions, prizeText } from "@/lib/server/awards"
 import { AwardDialog, CancelAward, SheetUploadDialog } from "@/components/app/prize-forms"
 import { prisma } from "@/lib/db"
 import { can } from "@/lib/roles"
 import { setEventStatus } from "@/app/actions/rewards"
 import { requirePermission } from "@/lib/server/session"
+import { getSettings } from "@/lib/server/settings"
 import { fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,6 +16,9 @@ import { PageHeader, Panel, PanelHeader } from "@/components/app/page-header"
 import { ConfirmAction } from "@/components/app/confirm-action"
 import { AwardStatusBadge, CategoryBadge, EventStatusBadge, POSITION_TONE } from "@/components/app/rewards-display"
 import { AttendeesAdder, EventDialog, RemoveAttendee } from "@/components/app/rewards-forms"
+import { EventGoodiesDialog, ReturnGoodiesDialog } from "@/components/app/store-forms"
+import { StatusBadge } from "@/components/app/status-badge"
+import { eventAllocation, eventPassed } from "@/lib/server/event-goodies"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const e = await prisma.event.findUnique({ where: { id: (await params).id }, select: { name: true } })
@@ -24,7 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePermission("rewards:view")
   const { id } = await params
-  const [event, types, positions, items] = await Promise.all([
+  const [settings, event, types, positions, items] = await Promise.all([
+    getSettings(),
     prisma.event.findUnique({
       where: { id },
       include: {
@@ -38,6 +43,12 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     prisma.stockItem.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, availableQty: true }, orderBy: { name: "asc" } }),
   ])
   if (!event) notFound()
+  const [alloc, goodieRequests] = await Promise.all([
+    eventAllocation(prisma, event.id),
+    prisma.request.findMany({ where: { eventId: event.id, status: { not: "CANCELLED" } }, orderBy: { createdAt: "asc" }, select: { id: true, number: true, type: true, status: true, currentLevel: true, requiredLevel: true, totalQty: true, createdAt: true } }),
+  ])
+  const passed = eventPassed(event.date)
+  const canRequest = can(user.role, "request:create")
   const pts = event.points ?? event.eventType.points
   const canOperate = can(user.role, "rewards:operate")
   const locked = event.attendance.length > 0
@@ -97,14 +108,68 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         <div className="flex min-w-0 flex-col gap-5">
           {canOperate && (
             <Panel>
-              <PanelHeader title="Mark attendance" description={`Each person gets ${fmtNum(pts)} points. Milestones they cross show up in Rewards.`} />
+              <PanelHeader title="Mark attendance" description={`Each person gets ${fmtNum(pts)} points.${settings.rewardMode === "milestones" ? " Milestones they cross show up in Rewards." : " They can spend them in the points store."}`} />
               <AttendeesAdder eventId={event.id} disabled={event.status === "CANCELLED"} />
             </Panel>
           )}
           <Panel className="overflow-hidden">
             <PanelHeader
+              title={<span className="inline-flex items-center gap-2"><GiftIcon className="size-4 text-primary" />Event goodies</span>}
+              description={passed ? "Goodies for an event are approved before it. This event has happened, so new requests are closed; unused goodies can be returned." : "Ask for the goodies this event needs. The manager approves before the event and stock goes down at approval. Goodie prizes come from these."}
+              actions={
+                canRequest &&
+                event.status !== "CANCELLED" && (
+                  <>
+                    {alloc.some((a) => a.remaining > 0) && <ReturnGoodiesDialog eventId={event.id} rows={alloc} />}
+                    {!passed && <EventGoodiesDialog eventId={event.id} eventName={event.name} items={items} />}
+                  </>
+                )
+              }
+            />
+            {alloc.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="pl-5">Goodie</TableHead>
+                    <TableHead className="text-right">Approved</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Waiting</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Prizes</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Returned</TableHead>
+                    <TableHead className="pr-5 text-right">Left</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {alloc.map((a) => (
+                    <TableRow key={a.stockItemId}>
+                      <TableCell className="pl-5"><Link href={`/stock/${a.stockItemId}`} className="hover:text-primary">{a.name}</Link></TableCell>
+                      <TableCell className="num text-right font-medium">{fmtNum(a.approved)}</TableCell>
+                      <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.waiting ? fmtNum(a.waiting) : "—"}</TableCell>
+                      <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.prizes ? fmtNum(a.prizes) : "—"}</TableCell>
+                      <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.returned ? fmtNum(a.returned) : "—"}</TableCell>
+                      <TableCell className="num pr-5 text-right font-semibold">{fmtNum(a.remaining)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="px-5 py-6 text-center text-sm text-muted-foreground">{passed ? "No goodies were approved for this event." : "No goodies requested yet."}</p>
+            )}
+            {goodieRequests.length > 0 && (
+              <ul className="divide-y border-t text-sm">
+                {goodieRequests.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5">
+                    <Link href={`/requests/${r.id}`} className="num font-medium hover:text-primary">{r.number}</Link>
+                    <span className="text-muted-foreground">{r.type === "RECEIPT" ? "Return to stock" : "Goodies request"}, {fmtNum(r.totalQty)} units</span>
+                    <StatusBadge className="ml-auto" status={r.status} level={r.currentLevel} required={r.requiredLevel} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+          <Panel className="overflow-hidden">
+            <PanelHeader
               title={<span className="inline-flex items-center gap-2"><TrophyIcon className="size-4 text-reward" />Winners and prizes</span>}
-              description="Amazon vouchers, goodies or other prizes for the top performers. Goodies go out through an approved distribution from the Prizes page."
+              description="Amazon vouchers, goodies or other prizes for the top performers. Goodie prizes are handed out from the Prizes page, straight from this event's approved goodies when there are enough."
               actions={
                 canOperate &&
                 event.status !== "CANCELLED" && (

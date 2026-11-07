@@ -16,6 +16,8 @@ import {
   GiftIcon,
   HouseIcon,
   MedalIcon,
+  PackageCheckIcon,
+  ShoppingBagIcon,
   PackageOpenIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -66,18 +68,20 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   me: UserRoundIcon,
   assistant: SparklesIcon,
   prizes: MedalIcon,
+  store: ShoppingBagIcon,
+  orders: PackageCheckIcon,
 }
 
-export type NavCounts = { approvals: number; mine: number; rewardsDue: number; prizesDue: number }
+export type NavCounts = { approvals: number; mine: number; rewardsDue: number; prizesDue: number; ordersDue: number }
 
-export function AppSidebar({ role, counts }: { role: Role; counts: NavCounts }) {
+export function AppSidebar({ role, counts, mode = "store" }: { role: Role; counts: NavCounts; mode?: "store" | "milestones" }) {
   const pathname = usePathname()
   const isActive = (i: NavItem) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + "/"))
 
   return (
     <Sidebar collapsible="icon" className="top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r">
       <SidebarContent className="gap-0 py-2">
-        {navFor(role).map((g, gi) => (
+        {navFor(role, mode).map((g, gi) => (
           <SidebarGroup key={g.label || gi} className="py-1">
             {g.label && <SidebarGroupLabel className="h-7 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{g.label}</SidebarGroupLabel>}
             <SidebarGroupContent>

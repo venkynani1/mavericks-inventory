@@ -5,6 +5,7 @@ import { applyPoints, recordAttendance } from "./rewards"
 import { AppError, type SessionUser } from "./session"
 import { getSettings } from "./settings"
 import { nextRequestNumber, recomputeTotals, submitRequest } from "./workflow"
+import { eventAllocation } from "./event-goodies"
 import { BASE_AWARD_POSITIONS } from "../../../prisma/base-data"
 
 /*
@@ -118,29 +119,56 @@ export async function cancelAward(id: string, reason: string, user: SessionUser)
   })
 }
 
-/** Puts goodie prizes on one distribution request (draft or submitted). Stock moves when it's approved. */
+/**
+ * Hands out goodie prizes. A prize whose event had goodies approved before it (and enough of that goodie
+ * is left) is issued straight from those goodies, with no second approval. The rest go on one
+ * distribution request (draft or submitted); stock moves when it's approved.
+ */
 export async function distributeAwards(ids: string[], opts: { submit: boolean; title?: string }, user: SessionUser) {
   if (!ids.length) throw new AppError("Select at least one prize.")
-  const req = await prisma.$transaction(async (tx) => {
-    const awards = await tx.eventAward.findMany({ where: { id: { in: ids } }, include: { employee: true, event: true } })
+  const result = await prisma.$transaction(async (tx) => {
+    const awards = await tx.eventAward.findMany({ where: { id: { in: ids } }, include: { employee: true, event: true, stockItem: true }, orderBy: { createdAt: "asc" } })
     if (awards.length !== ids.length) throw new AppError("Some prizes no longer exist. Refresh and try again.")
     const wrong = awards.filter((a) => a.kind !== "GOODIE" || a.status !== "PENDING" || !a.stockItemId)
     if (wrong.length) throw new AppError("Only goodie prizes that are still pending can go on a distribution.", 409)
-    const number = await nextRequestNumber(tx, "DISTRIBUTION")
-    const events = [...new Set(awards.map((a) => a.event.name))]
-    const r = await tx.request.create({ data: { number, type: "DISTRIBUTION", title: opts.title?.trim() || `Event prizes: ${events.slice(0, 2).join(", ")}${events.length > 2 ? ` and ${events.length - 2} more` : ""}`, purpose: "Event prize", createdById: user.id } })
+
+    // 1. From the event's approved goodies, where there's enough left.
+    const eventIds = [...new Set(awards.map((a) => a.eventId))].sort()
+    for (const id of eventIds) await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${id} FOR UPDATE`
+    const left = new Map<string, number>()
+    for (const id of eventIds) for (const r of await eventAllocation(tx, id)) left.set(`${id}:${r.stockItemId}`, r.remaining)
+    const direct: typeof awards = []
+    const viaRequest: typeof awards = []
     for (const a of awards) {
+      const key = `${a.eventId}:${a.stockItemId}`
+      const n = left.get(key) ?? 0
+      if (n >= a.quantity) {
+        left.set(key, n - a.quantity)
+        direct.push(a)
+      } else viaRequest.push(a)
+    }
+    if (direct.length) {
+      await tx.eventAward.updateMany({ where: { id: { in: direct.map((a) => a.id) } }, data: { status: "ISSUED", fromAllocation: true, issuedAt: new Date(), issuedById: user.id } })
+      await audit(tx, { actorId: user.id, action: "AWARD.ISSUE", entity: "EventAward", summary: `Issued ${direct.length} goodie prize(s) from the event's approved goodies: ${direct.map((a) => `${a.employee.name} (${a.position}, ${a.stockItem?.name ?? "goodie"}, ${a.event.code})`).join("; ")}`.slice(0, 1000) })
+    }
+
+    // 2. The rest on a distribution request.
+    if (!viaRequest.length) return { direct: direct.length, req: null }
+    const number = await nextRequestNumber(tx, "DISTRIBUTION")
+    const events = [...new Set(viaRequest.map((a) => a.event.name))]
+    const r = await tx.request.create({ data: { number, type: "DISTRIBUTION", title: opts.title?.trim() || `Event prizes: ${events.slice(0, 2).join(", ")}${events.length > 2 ? ` and ${events.length - 2} more` : ""}`, purpose: "Event prize", createdById: user.id } })
+    for (const a of viaRequest) {
       await tx.distributionLine.create({
         data: { requestId: r.id, stockItemId: a.stockItemId!, quantity: a.quantity, distributedOn: new Date(), recipientId: a.employee.empId, recipientName: a.employee.name, location: a.employee.location, purpose: "Event prize", poc: user.name, remarks: `${a.position}, ${a.event.code} ${a.event.name}`, awardId: a.id },
       })
     }
-    await tx.eventAward.updateMany({ where: { id: { in: ids } }, data: { status: "IN_APPROVAL", requestId: r.id } })
+    await tx.eventAward.updateMany({ where: { id: { in: viaRequest.map((a) => a.id) } }, data: { status: "IN_APPROVAL", requestId: r.id } })
     await recomputeTotals(tx, r.id)
-    await audit(tx, { actorId: user.id, action: "AWARD.DISTRIBUTION", entity: "Request", entityId: r.id, summary: `Created ${number} for ${awards.length} event prize(s)` })
-    return r
+    await audit(tx, { actorId: user.id, action: "AWARD.DISTRIBUTION", entity: "Request", entityId: r.id, summary: `Created ${number} for ${viaRequest.length} event prize(s)` })
+    return { direct: direct.length, req: r }
   })
-  if (opts.submit) await submitRequest(req.id, user)
-  return req
+  if (opts.submit && result.req) await submitRequest(result.req.id, user)
+  return result
 }
 
 /** Marks vouchers and other prizes as handed over, with an order or reference number. */

@@ -150,8 +150,14 @@ const TOOLS: Tool[] = [
       const rewards = await prisma.rewardEarned.findMany({ where: { employeeId: emp.id }, orderBy: [{ cycle: "desc" }, { threshold: "asc" }] })
       const self = emp.id === ctx.employeeId
       const who = self ? "You have" : `**${emp.name}** (${emp.empId}) has`
-      const next = p.complete ? `All ${p.total} milestones reached.` : `${fmtNum(p.toNext)} more points to the ${fmtNum(p.next!)} milestone.`
-      const rw = rewards.length ? `\nRewards: ${rewards.map((r) => `${fmtNum(r.threshold)} ${r.status === "ISSUED" ? "received" : r.status === "IN_PROGRESS" ? "on the way" : r.status === "DUE" ? "due" : "cancelled"}`).join(", ")}` : ""
+      let next = p.complete ? `All ${p.total} milestones reached.` : `${fmtNum(p.toNext)} more points to the ${fmtNum(p.next!)} milestone.`
+      if (settings.rewardMode === "store") {
+        const items = await prisma.rewardCatalogItem.findMany({ where: { active: true }, orderBy: { pointsCost: "asc" }, select: { name: true, pointsCost: true } })
+        const afford = items.filter((i) => i.pointsCost <= emp.points)
+        const goal = items.find((i) => i.pointsCost > emp.points)
+        next = `${afford.length ? `${self ? "You can" : "They can"} get ${afford.length === 1 ? `a ${afford[0].name}` : `${afford.length} goodies`} from the points store now. ` : ""}${goal ? `${fmtNum(goal.pointsCost - emp.points)} more points for a ${goal.name}.` : ""}`
+      }
+      const rw = settings.rewardMode === "milestones" && rewards.length ? `\nRewards: ${rewards.map((r) => `${fmtNum(r.threshold)} ${r.status === "ISSUED" ? "received" : r.status === "IN_PROGRESS" ? "on the way" : r.status === "DUE" ? "due" : "cancelled"}`).join(", ")}` : ""
       return { text: `${who} **${fmtNum(emp.points)} points** (cycle ${emp.cycle}, lifetime ${fmtNum(emp.lifetimePoints)}). ${next}${rw}`, links: [{ label: self && ctx.user.role === "EMPLOYEE" ? "My dashboard" : emp.name, href: self && ctx.user.role === "EMPLOYEE" ? "/me" : `/employees/${emp.id}` }] }
     },
   },
@@ -169,6 +175,38 @@ const TOOLS: Tool[] = [
       const prizeLines = prizes.length ? `\nEvent prizes:\n${prizes.map((a) => `- ${a.position} at ${a.event.name}: ${a.kind === "VOUCHER" ? `${a.voucherProvider ?? "Amazon"} voucher ₹${fmtNum(a.voucherAmount ?? 0)}` : a.kind === "GOODIE" ? (a.stockItem?.name ?? "goodie") : (a.description ?? "prize")} (${a.status === "ISSUED" ? "received" : "on the way"})`).join("\n")}` : ""
       if (!lines.length) return { text: `No goodies recorded yet.${pending ? ` ${pending} reward${pending > 1 ? "s are" : " is"} on the way.` : ""}${prizeLines}` }
       return { text: `You've received ${lines.length} goodie${lines.length > 1 ? "s" : ""}:\n${lines.map((l) => `- ${l.stockItem.name} x${l.quantity}, ${fmtDate(l.distributedOn)}${l.purpose ? ` (${l.purpose})` : ""}`).join("\n")}${pending ? `\n${pending} more reward${pending > 1 ? "s are" : " is"} on the way.` : ""}${prizeLines}`, links: [{ label: "Goodies received", href: "/me/goodies" }] }
+    },
+  },
+  {
+    name: "points_store",
+    description: "The points store: goodies employees can order with points and what each costs. For an employee, also what they can afford now and how many points they need for the next goodie, and their own orders with pickup place and time.",
+    input_schema: { type: "object", properties: {} },
+    allowed: () => true,
+    async run(_i, ctx) {
+      const items = await prisma.rewardCatalogItem.findMany({ where: { active: true }, orderBy: { pointsCost: "asc" }, take: 20 })
+      if (!items.length) return { text: "The points store has no goodies yet." }
+      const emp = ctx.employeeId ? await prisma.employee.findUnique({ where: { id: ctx.employeeId } }) : null
+      const list = items.map((i) => `- ${i.name}: **${fmtNum(i.pointsCost)}** points${emp ? (emp.points >= i.pointsCost ? " (you can get this)" : ` (${fmtNum(i.pointsCost - emp.points)} more)`) : ""}`).join("\n")
+      if (!emp || ctx.user.role !== "EMPLOYEE") return { text: `Goodies in the points store:\n${list}`, links: [{ label: "Store settings", href: "/admin/rewards" }, { label: "Store orders", href: "/redemptions" }] }
+      const orders = await prisma.redemptionOrder.findMany({ where: { employeeId: emp.id, status: { in: ["PLACED", "ACCEPTED"] } }, include: { lines: true }, orderBy: { createdAt: "desc" } })
+      const ord = orders.length
+        ? `\nYour open orders:\n${orders.map((o) => `- ${o.number} (${o.lines.map((l) => l.name).join(", ")}): ${o.status === "ACCEPTED" ? `ready to collect at ${o.pickupLocation}, ${o.pickupAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(o.pickupAt) : ""}` : "waiting for the team to give a pickup slot"}`).join("\n")}`
+        : ""
+      return { text: `You have **${fmtNum(emp.points)} points**. When you order, the points are taken off (for example 2,400 − 2,000 leaves 400).\n${list}${ord}`, links: [{ label: "Points store", href: "/me/store" }, { label: "My orders", href: "/me/orders" }] }
+    },
+  },
+  {
+    name: "store_orders",
+    description: "Points-store orders waiting for the engagement team to accept, and accepted orders waiting to be collected.",
+    input_schema: { type: "object", properties: {} },
+    allowed: (r) => can(r, "rewards:view"),
+    async run() {
+      const [placed, accepted] = await Promise.all([
+        prisma.redemptionOrder.findMany({ where: { status: "PLACED" }, include: { employee: true, lines: true }, orderBy: { createdAt: "asc" }, take: 10 }),
+        prisma.redemptionOrder.count({ where: { status: "ACCEPTED" } }),
+      ])
+      if (!placed.length) return { text: `No store orders are waiting to be accepted.${accepted ? ` ${accepted} accepted order${accepted > 1 ? "s are" : " is"} waiting to be collected.` : ""}`, links: [{ label: "Store orders", href: "/redemptions" }] }
+      return { text: `${placed.length} store order${placed.length > 1 ? "s" : ""} to accept:\n${placed.map((o) => `- ${o.number}: ${o.employee.name}, ${o.lines.map((l) => `${l.name}${l.quantity > 1 ? ` x${l.quantity}` : ""}`).join(", ")} (${fmtNum(o.totalPoints)} points)`).join("\n")}${accepted ? `\n${accepted} more accepted, waiting to be collected.` : ""}`, links: [{ label: "Store orders", href: "/redemptions" }] }
     },
   },
   {
@@ -260,6 +298,9 @@ const HOWTO: { title: string; keys: string[]; roles: (r: Role) => boolean; steps
   { title: "Approve or reject requests", keys: ["approv", "reject"], roles: (r) => can(r, "request:approve"), href: "/approvals", steps: ["Open Approvals. Overdue requests are flagged.", "Open a request to see every line and any stock shortfall.", "Approve, or reject with a remark the maker will see."] },
   { title: "Change points per event type or milestone goodies", keys: ["points per", "configure", "event type", "milestone", "rule", "cap"], roles: (r) => can(r, "rewards:configure"), href: "/admin/rewards", steps: ["Open Administration, Points and rewards rules.", "Edit points for each event type, the milestone step and cap, and the goodie for each milestone.", "Changes apply to attendance recorded from now on; history isn't rewritten."] },
   { title: "Adjust or reset someone's points", keys: ["adjust", "reset", "correct"], roles: (r) => can(r, "rewards:configure"), href: "/employees", steps: ["Open Employees and points and find the person.", "Choose Adjust points (with a reason) or Reset points to start a new cycle.", "Every change is kept in their points history and the audit log."] },
+  { title: "Get a goodie with your points", keys: ["store", "redeem", "order", "cart", "spend", "buy", "collect", "pickup"], roles: (r) => r === "EMPLOYEE", href: "/me/store", steps: ["Open Points store. Goodies you can afford are marked.", "Add them to the cart and choose Place order. The points are taken off at once (2,400 − 2,000 leaves 400).", "The engagement team accepts and gives a pickup place and time, shown under My orders. If they reject it, your points come back."] },
+  { title: "Handle points-store orders", keys: ["store", "redeem", "order", "pickup", "collect"], roles: (r) => can(r, "rewards:operate"), href: "/redemptions", steps: ["Open Store orders. New orders are listed oldest first.", "Choose Accept and set pickup (place, date and time). The goodies leave stock now.", "When the employee collects them, choose Mark collected. Reject refunds the points."] },
+  { title: "Get goodies approved for an event", keys: ["event goodies", "goodies for", "before the event", "allocation"], roles: (r) => can(r, "request:create"), href: "/events", steps: ["Open the event before it happens and choose Request goodies.", "List the items and quantities and send for approval. Stock goes down when the manager approves.", "After the event, goodie prizes come from these, and Return unused sends leftovers back to stock."] },
   { title: "See your points and goodies", keys: ["my points", "my goodies", "progress"], roles: (r) => r === "EMPLOYEE", href: "/me", steps: ["Open My dashboard to see your points and the progress bar to the cap.", "Goodies received lists everything handed to you.", "Points history shows each event and adjustment."] },
 ]
 
@@ -292,6 +333,7 @@ export async function answerOffline(text: string, ctx: Ctx): Promise<ToolOut & {
   if (OFF_TOPIC.test(t)) return { text: "I can only help with Mavericks Inventory: stock, requests, events, points and rewards, within what your role can see." }
   if (/how (do|can|to)|steps|help me|guide/.test(t)) return call("how_to", { topic: t })
   if (/leader|top (\d+ )?(employees|people|scorers)|rank/.test(t)) return call("leaderboard", { top: Number(t.match(/top (\d+)/)?.[1]) || 10 })
+  if (/store|redeem|\border|cart|spend|afford|can i get|pickup|collect/.test(t)) return can(role, "rewards:view") && !/\bmy\b|can i/.test(t) ? call("store_orders") : call("points_store")
   if (/goodie|received|got|swag|prize|voucher|won/.test(t) && (role === "EMPLOYEE" || /\bmy\b|\bi\b/.test(t))) return call("my_goodies")
   if (/point|milestone|progress|balance/.test(t)) {
     const named = text.match(/(?:of|for|does|did|has)\s+([A-Z][A-Za-z.]+(?:\s+[A-Z][A-Za-z.]+)*|\d{6,})/)?.[1] ?? text.match(/\b(\d{8,})\b/)?.[1] ?? ""
@@ -315,7 +357,7 @@ export async function answerOffline(text: string, ctx: Ctx): Promise<ToolOut & {
 }
 
 export function suggestionsFor(role: Role): string[] {
-  if (role === "EMPLOYEE") return ["How many points do I have?", "What goodies have I received?", "Upcoming events", "Show the leaderboard"]
+  if (role === "EMPLOYEE") return ["How many points do I have?", "What can I get with my points?", "Where do I collect my order?", "Upcoming events"]
   const s: string[] = []
   if (can(role, "request:approve")) s.push("What's waiting for my approval?")
   if (can(role, "request:create")) s.push("Which items are running low?")
@@ -337,6 +379,7 @@ function systemPrompt(ctx: Ctx) {
     `You are talking to ${ctx.user.name}, whose role is ${ROLE_LABEL[ctx.user.role]}. Today is ${fmtDate(new Date())}.`,
     `Only answer questions about this application and its data. Use the tools to get facts; never guess numbers. If a question is outside the application, or needs data the tools don't offer to this role, say briefly that it's outside what you can help with here.`,
     ctx.user.role === "EMPLOYEE" ? "This person is an employee: they may only see their own points, goodies and events, the public events list and (if allowed) the leaderboard. Never reveal other employees' details." : "",
+    `How goodies work: employees earn points at events and spend them in the points store (an order deducts the points at once, e.g. 2,400 − 2,000 leaves 400; the engagement team accepts and gives a pickup place and time, or rejects and refunds). Goodies for an event are requested and approved by a manager before the event; stock goes down at approval.`,
     `Answer in short, plain sentences. Use "- " bullet lists for several items and **bold** for key numbers. Don't use headings or tables. Use Indian number formatting (1,00,000).`,
   ].filter(Boolean).join("\n")
 }

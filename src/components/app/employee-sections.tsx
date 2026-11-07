@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Panel, PanelHeader } from "./page-header"
 import { AwardStatusBadge, CategoryBadge, POSITION_TONE, RewardStatusBadge } from "./rewards-display"
 
-const TX_LABEL: Record<string, string> = { EVENT: "Event", ADJUSTMENT: "Adjustment", RESET: "Reset", REVERSAL: "Reversal", AWARD: "Prize bonus" }
+const TX_LABEL: Record<string, string> = { EVENT: "Event", ADJUSTMENT: "Adjustment", RESET: "Reset", REVERSAL: "Reversal", AWARD: "Prize bonus", REDEMPTION: "Points store order", REFUND: "Points refunded" }
 
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return <p className="px-5 py-10 text-center text-sm text-muted-foreground">{children}</p>

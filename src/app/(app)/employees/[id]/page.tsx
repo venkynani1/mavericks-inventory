@@ -8,7 +8,8 @@ import { employeeOverview } from "@/lib/server/employee-data"
 import { requirePermission } from "@/lib/server/session"
 import { getSettings } from "@/lib/server/settings"
 import { fmtNum, initials } from "@/lib/utils"
-import { PageHeader, Panel } from "@/components/app/page-header"
+import { PageHeader, Panel, PanelHeader } from "@/components/app/page-header"
+import { OrderStatusBadge } from "@/components/app/store-display"
 import { PointsProgress } from "@/components/app/rewards-display"
 import { AdjustPointsDialog, EmployeeDialog, ResetPointsDialog } from "@/components/app/rewards-forms"
 import { AwardsPanel, EventsAttendedPanel, GoodiesPanel, HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
@@ -67,11 +68,26 @@ export default async function EmployeePage({ params, searchParams }: { params: P
       </Panel>
 
       <div className="flex flex-col gap-5">
-        <RewardsPanel data={data} staff step={settings.rewards.step} />
+        {(settings.rewardMode === "milestones" || data.rewards.length > 0) && <RewardsPanel data={data} staff step={settings.rewards.step} />}
         <div className="grid gap-5 xl:grid-cols-2">
           <HistoryPanel data={data} staff limit={sp.tab === "history" ? undefined : 12} />
           <div className="flex flex-col gap-5">
             <AwardsPanel data={data} staff hideEmpty />
+            {data.orders.length > 0 && (
+              <Panel className="overflow-hidden">
+                <PanelHeader title="Points store orders" actions={<Link href={`/redemptions?q=${emp.empId}&view=placed`} className="text-sm text-primary hover:underline">Store orders</Link>} />
+                <ul className="divide-y text-sm">
+                  {data.orders.slice(0, 8).map((o) => (
+                    <li key={o.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5">
+                      <span className="num font-medium">{o.number}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">{o.lines.map((l) => l.name).join(", ")}</span>
+                      <span className="num">{fmtNum(o.totalPoints)} pts</span>
+                      <OrderStatusBadge status={o.status} />
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
             <EventsAttendedPanel data={data} staff limit={10} />
             <GoodiesPanel data={data} staff />
           </div>

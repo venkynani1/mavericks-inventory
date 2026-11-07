@@ -1,3 +1,4 @@
+import { istDay, istToday } from "@/lib/server/event-goodies"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -40,7 +41,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
   const page = Math.max(1, Number((await searchParams).page) || 1)
   const req = await prisma.request.findUnique({
     where: { id },
-    include: { createdBy: true, events: { include: { actor: true }, orderBy: { createdAt: "asc" } } },
+    include: { createdBy: true, events: { include: { actor: true }, orderBy: { createdAt: "asc" } }, event: { select: { id: true, code: true, name: true, date: true } } },
   })
   if (!req) notFound()
   const settings = await getSettings()
@@ -288,6 +289,12 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
         <div className="mt-1 flex items-center gap-2">
           <StatusBadge status={req.status as ReqStatus} level={req.currentLevel} required={req.requiredLevel} />
           {overdue && <span className="text-xs text-pending">Waiting more than {settings.escalationHours} hours</span>}
+          {req.event && (
+            <Link href={`/events/${req.event.id}`} className={`text-xs hover:underline ${req.type === "DISTRIBUTION" && req.status === "SUBMITTED" && istDay(req.event.date) < istToday() ? "font-medium text-rejected" : "text-primary"}`}>
+              {req.type === "RECEIPT" ? "Returned from" : "For"} {req.event.code} {req.event.name} on {fmtDate(req.event.date)}
+              {req.type === "DISTRIBUTION" && req.status === "SUBMITTED" && (istDay(req.event.date) < istToday() ? " (event has passed)" : " (approve before the event)")}
+            </Link>
+          )}
         </div>
       </PageHeader>
 

@@ -47,7 +47,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const approver = can(user.role, "request:approve")
   const exec = user.role === "EXECUTIVE"
 
-  const [items, out30, pending, weekly, pointsWeekly, decisions, purposes, mine, flow, rewardsDue, upcoming, toRecord, top, prizesDue] = await Promise.all([
+  const store = settings.rewardMode === "store"
+  const [items, out30, pending, weekly, pointsWeekly, decisions, purposes, mine, flow, rewardsDue, upcoming, toRecord, top, prizesDue, noGoodies] = await Promise.all([
     prisma.stockItem.findMany({ where: { status: "ACTIVE" }, include: { category: true } }),
     prisma.distributionLine.aggregate({ where: { request: { status: "APPROVED" }, distributedOn: { gte: since30 } }, _sum: { quantity: true }, _count: true }),
     prisma.request.findMany({ where: { status: "SUBMITTED" }, select: { id: true, submittedAt: true, totalQty: true, createdById: true } }),
@@ -74,11 +75,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
       SELECT
         (SELECT coalesce(sum(l.quantity), 0)::int FROM "DistributionLine" l JOIN "Request" r ON r.id = l."requestId" WHERE r.status = 'SUBMITTED') AS reserved,
         (SELECT coalesce(sum(l.quantity), 0)::int FROM "ReceiptLine" l JOIN "Request" r ON r.id = l."requestId" WHERE r.status = 'SUBMITTED') AS inbound`,
-    can(user.role, "rewards:view") ? prisma.rewardEarned.count({ where: { status: "DUE" } }) : 0,
+    !can(user.role, "rewards:view") ? 0 : store ? prisma.redemptionOrder.count({ where: { status: "PLACED" } }) : prisma.rewardEarned.count({ where: { status: "DUE" } }),
     prisma.event.findMany({ where: { status: "PLANNED", date: { gte: subDays(new Date(), 1) } }, include: { eventType: true }, orderBy: { date: "asc" }, take: 3 }),
     can(user.role, "rewards:operate") ? prisma.event.count({ where: { status: "PLANNED", date: { lt: subDays(new Date(), 1) } } }) : 0,
     leaderboard("quarter", { take: 5 }),
     can(user.role, "rewards:operate") ? prisma.eventAward.count({ where: { status: "PENDING" } }) : 0,
+    // Upcoming events (next 14 days) with no goodies request yet: goodies need approval before the event.
+    exec ? prisma.event.count({ where: { status: "PLANNED", date: { gte: subDays(new Date(), 0), lte: new Date(Date.now() + 14 * 86400_000) }, requests: { none: { type: "DISTRIBUTION", status: { not: "CANCELLED" } } } } }) : 0,
   ])
 
   const onHand = items.reduce((s, i) => s + i.availableQty, 0)
@@ -111,7 +114,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   if (out.length && (exec || user.role === "ADMIN")) attention.push({ key: "out", icon: PackageXIcon, tone: "danger", title: `${out.length} item${out.length > 1 ? "s" : ""} out of stock`, detail: out.slice(0, 2).map((i) => i.name).join(", "), href: "/stock?state=out", action: "See items" })
   if (low.length && (exec || user.role === "ADMIN")) attention.push({ key: "low", icon: AlertTriangleIcon, tone: "warn", title: `${low.length} item${low.length > 1 ? "s" : ""} running low`, detail: "At or below reorder level", href: "/stock?state=low", action: "Plan inward" })
   if (prizesDue && can(user.role, "rewards:operate")) attention.push({ key: "prizes", icon: TrophyIcon, tone: "reward", title: `${prizesDue} event prize${prizesDue > 1 ? "s" : ""} to hand out`, detail: "Winners' vouchers and goodies", href: "/prizes", action: "Hand out" })
-  if (rewardsDue && can(user.role, "rewards:operate")) attention.push({ key: "rewards", icon: GiftIcon, tone: "reward", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone", href: "/rewards", action: "Hand out" })
+  if (rewardsDue && can(user.role, "rewards:operate"))
+    attention.push(
+      store
+        ? { key: "orders", icon: GiftIcon, tone: "reward", title: `${rewardsDue} store order${rewardsDue > 1 ? "s" : ""} to accept`, detail: "Employees spent points on goodies", href: "/redemptions", action: "Give pickup slot" }
+        : { key: "rewards", icon: GiftIcon, tone: "reward", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone", href: "/rewards", action: "Hand out" },
+    )
+  if (noGoodies) attention.push({ key: "goodies", icon: CalendarClockIcon, tone: "info", title: `${noGoodies} upcoming event${noGoodies > 1 ? "s" : ""} without goodies approved`, detail: "Request goodies so the manager approves before the event", href: "/events?view=upcoming", action: "Plan goodies" })
   if (toRecord) attention.push({ key: "record", icon: CalendarClockIcon, tone: "info", title: `${toRecord} past event${toRecord > 1 ? "s" : ""} without attendance`, detail: "Mark attendees so they get their points", href: "/events?view=upcoming", action: "Record" })
 
   const actions =
@@ -179,7 +188,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         <Tile label="Free to promise" value={fmtNum(Math.max(0, onHand - reserved))} hint={inbound ? `${fmtNum(inbound)} more inbound` : "On hand minus reserved"} icon={<ArrowDownToLineIcon />} />
         <Tile label="Handed out, 30 days" value={fmtNum(out30._sum.quantity ?? 0)} hint={`${fmtNum(out30._count)} handovers`} spark={chart.map((c) => c.units)} href="/movements" />
         <Tile label="Low or out" value={fmtNum(low.length + out.length)} hint={`${out.length} out of stock`} tone={out.length ? "danger" : low.length ? "warn" : undefined} href="/stock?state=low" />
-        <Tile label="Event points, 4 weeks" value={fmtNum(pts30)} hint={`${fmtNum(rewardsDue)} rewards due`} spark={ptsSeries} sparkTone="text-reward" href={can(user.role, "rewards:view") ? "/rewards" : undefined} />
+        <Tile label="Event points, 4 weeks" value={fmtNum(pts30)} hint={store ? `${fmtNum(rewardsDue)} store orders waiting` : `${fmtNum(rewardsDue)} rewards due`} spark={ptsSeries} sparkTone="text-reward" href={can(user.role, "rewards:view") ? (store ? "/redemptions" : "/rewards") : undefined} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">

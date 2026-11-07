@@ -674,15 +674,26 @@ export function MilestoneDialog({ m, items }: { m: { id: string; threshold: numb
   )
 }
 
-export function RewardRulesForm({ step, cap, leaderboard }: { step: number; cap: number; leaderboard: boolean }) {
-  const [v, setV] = useState({ step: String(step), cap: String(cap), leaderboardForEmployees: leaderboard })
+export function RewardRulesForm({ step, cap, leaderboard, mode }: { step: number; cap: number; leaderboard: boolean; mode: "store" | "milestones" }) {
+  const [v, setV] = useState({ step: String(step), cap: String(cap), leaderboardForEmployees: leaderboard, rewardMode: mode })
   const { pending, error, submit } = useSubmit()
   const n = Number(v.step) > 0 ? Math.floor(Number(v.cap) / Number(v.step)) : 0
   return (
     <div className="flex flex-col gap-4 p-5">
       <FieldGroup className="grid gap-4 sm:grid-cols-2">
+        <Field orientation="horizontal" className="sm:col-span-2">
+          <Switch id="rr-mode" checked={v.rewardMode === "store"} onCheckedChange={(c) => setV({ ...v, rewardMode: c ? "store" : "milestones" })} />
+          <div>
+            <FieldLabel htmlFor="rr-mode">Points store</FieldLabel>
+            <FieldDescription>
+              {v.rewardMode === "store"
+                ? "On: employees spend their points on goodies from the store (2,400 − 2,000 leaves 400). The team accepts each order and gives a pickup slot."
+                : "Off: a goodie becomes due automatically at every milestone and the team hands it out from Milestone rewards."}
+            </FieldDescription>
+          </div>
+        </Field>
         <Field>
-          <FieldLabel htmlFor="rr-step">A goodie every</FieldLabel>
+          <FieldLabel htmlFor="rr-step">{v.rewardMode === "store" ? "Progress steps every" : "A goodie every"}</FieldLabel>
           <Input id="rr-step" inputMode="numeric" value={v.step} onChange={(e) => setV({ ...v, step: e.target.value.replace(/[^0-9]/g, "") })} />
           <FieldDescription>points</FieldDescription>
         </Field>

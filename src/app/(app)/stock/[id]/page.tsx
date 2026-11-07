@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: i?.name ?? "Stock item" }
 }
 
-const MOVE: Record<string, string> = { OPENING: "Opening", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Adjustment" }
+const MOVE: Record<string, string> = { OPENING: "Opening", RECEIPT: "Stock inward", DISTRIBUTION: "Distribution", ADJUSTMENT: "Adjustment", REDEMPTION: "Points store" }
 
 export default async function StockItemPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser()

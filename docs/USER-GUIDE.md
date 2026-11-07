@@ -3,7 +3,8 @@
 Mavericks Inventory keeps track of the goodies, welcome kits, T-shirts, bottles and gadgets the Mavericks team hands out, and rewards employees for taking part in events. It replaces the old Excel trackers.
 
 - **Stores:** you record what came in and who received what, and a manager approves it before the stock count changes, so the numbers always match the shelf.
-- **Engagement:** every tech talk, workshop, hackathon or celebration someone attends earns them points. Every 2,000 points earns a goodie, up to 20,000. Employees can sign in to see their own points, progress and goodies.
+- **Engagement:** every tech talk, workshop, hackathon or celebration someone attends earns them points. Employees spend their points on goodies in the **points store** (a mug at 2,000, a backpack at 4,000 and so on), or keep saving for a bigger one. Employees can sign in to see their own points, order goodies and see where to collect them.
+- **Event goodies are approved before the event:** the executive asks for the goodies an event needs, the manager approves, and only then does the stock go down.
 
 This guide walks through every screen and button. You don't need any technical knowledge. The pictures come from the demo version, so the names and numbers are examples.
 
@@ -15,11 +16,11 @@ This guide walks through every screen and button. You don't need any technical k
 - [Finding your way around](#finding-your-way-around)
 - [Ask Mav, the assistant](#ask-mav-the-assistant)
 - [For Executives](#for-executives): [look up items](#look-up-items) · [record a distribution](#record-a-distribution) · [upload a distribution sheet](#upload-a-distribution-sheet) · [add new items](#add-new-stock-items) · [upload a stock sheet](#upload-a-stock-sheet) · [record stock inward](#record-stock-inward) · [count stock](#count-stock) · [stock movements](#stock-movements) · [drafts and returned requests](#drafts-and-returned-requests)
-- [Events, points and rewards](#events-points-and-rewards): [how points work](#how-points-work) · [create an event](#create-an-event) · [upload events from Excel](#upload-events-from-excel) · [mark attendance](#mark-attendance) · [winners and prizes](#winners-and-prizes) · [hand out rewards](#hand-out-rewards) · [employees and points](#employees-and-points) · [leaderboard](#leaderboard)
+- [Events, points and rewards](#events-points-and-rewards): [how points work](#how-points-work) · [create an event](#create-an-event) · [upload events from Excel](#upload-events-from-excel) · [goodies for an event](#goodies-for-an-event-approved-before-it) · [mark attendance](#mark-attendance) · [winners and prizes](#winners-and-prizes) · [store orders](#store-orders-points-store) · [milestone rewards](#hand-out-rewards-milestone-scheme) · [employees and points](#employees-and-points) · [leaderboard](#leaderboard)
 - [For Managers and the Management Authority](#for-managers-and-the-management-authority): [the approval queue](#the-approval-queue) · [approve](#approve-a-request) · [return with remarks](#return-a-request) · [two-level approval](#two-level-approval) · [approve several at once](#approve-several-at-once)
 - [Reports](#reports)
 - [For System Administrators](#for-system-administrators): [users](#add-and-manage-users) · [approval rules](#approval-rules) · [points and rewards rules](#points-and-rewards-rules) · [adjust or reset points](#adjust-or-reset-points) · [master data](#master-data) · [audit log](#audit-log) · [system status](#system-status)
-- [For Employees: your portal](#for-employees-your-portal)
+- [For Employees: your portal](#for-employees-your-portal) · [the points store](#the-points-store)
 - [Your profile and password](#your-profile-and-password)
 - [Questions people ask](#questions-people-ask)
 
@@ -54,9 +55,20 @@ Points work alongside this:
 ```mermaid
 flowchart LR
   E[Event held] -->|Executive marks attendance| P[Points credited<br/>straight away]
-  P -->|crosses 2,000, 4,000 …| W[Reward due]
-  W -->|Executive puts rewards<br/>on a distribution| R[In approval]
-  R -->|Manager approves| I[Issued<br/>goodie handed over]
+  P -->|Employee orders a goodie<br/>in the points store| O[Order placed<br/>points deducted]
+  O -->|Team accepts and<br/>sets a pickup slot| A[Ready to collect<br/>stock goes down]
+  A -->|Employee collects| C[Collected]
+  O -->|Team rejects| F[Points refunded]
+```
+
+Goodies for an event are approved **before** it:
+
+```mermaid
+flowchart LR
+  U[Upcoming event] -->|Executive requests goodies| R[In review]
+  R -->|Manager approves<br/>before the event| S[Stock goes down]
+  S --> Pz[Goodie prizes come<br/>from these goodies]
+  S --> Ret[Unused goodies<br/>returned after the event]
 ```
 
 ---
@@ -65,11 +77,11 @@ flowchart LR
 
 | Role | What they do |
 | --- | --- |
-| **Executive** | Adds stock items, records distributions, stock inward and stock counts (one at a time or by uploading Excel), creates events, marks attendance, hands out points rewards, and fixes anything an approver returns |
+| **Executive** | Adds stock items, records distributions, stock inward and stock counts (one at a time or by uploading Excel), creates events, requests goodies for upcoming events, marks attendance, records winners, accepts points-store orders and sets the pickup, and fixes anything an approver returns |
 | **Manager** | Approves or returns requests (level 1). Sees stock, events, employees' points, reports and the audit log |
 | **Management Authority** | Approves or returns requests at level 1 or level 2 (the final say when two levels are switched on) |
 | **System Administrator** | Adds users and sets roles, sets the approval rules and the points and rewards rules, adjusts or resets points, manages the lists people pick from, views the audit log and system status |
-| **Employee** | Sees only their own portal: points, progress to 20,000, rewards, goodies received and events |
+| **Employee** | Sees only their own portal: points, the points store and their orders, goodies received and events |
 
 Three safety rules apply to everyone:
 
@@ -115,7 +127,7 @@ All demo accounts use the password `Mavericks@2026` if you prefer to type it (op
 The screen has three parts, like most large business systems:
 
 - **The dark bar at the top** is always there: the menu button, the search box, **Ask Mav** (the assistant), the **bell** (things that need your attention), the light/dark switch and your name.
-- **The menu on the left** is grouped by kind of work: **Inventory** (items, stock movements, stock inward, stock counts), **Fulfilment** (distributions, requests, approvals), **Engagement** (events, employees and points, milestone rewards, event prizes, leaderboard), **Analytics** (reports) and **Administration**. What you see depends on your role. The menu button at the top left folds it to icons.
+- **The menu on the left** is grouped by kind of work: **Inventory** (items, stock movements, stock inward, stock counts), **Fulfilment** (distributions, requests, approvals), **Engagement** (events, employees and points, store orders, event prizes, leaderboard), **Analytics** (reports) and **Administration**. What you see depends on your role. The menu button at the top left folds it to icons.
 - **The page** in the middle.
 
 **Home** is the first page after sign-in:
@@ -310,10 +322,12 @@ To throw away a draft, open it and select **Delete draft**. It's kept in the his
 
 - Each **kind of event** is worth a set number of points. The administrator sets them, for example: tech talk 200, webinar 150, tech event 300, workshop 400, codeathon 500, hackathon 600, non-tech event 100, leadership connect 150, CSR activity 250.
 - When an executive marks someone **present** at an event, that event's points are added to the person straight away.
-- Every **2,000 points** is a milestone that earns a **goodie**: 2,000, 4,000, 6,000 … up to **20,000**, the maximum. Points above 20,000 aren't added. The administrator can change the step and the maximum.
-- The administrator chooses the goodie for each milestone (for example a coffee mug at 2,000, a bottle at 4,000, a backpack at 6,000) and can change it later, or leave it "to be decided" and pick one per person when handing out.
-- Crossing a milestone creates a **reward due**. The goodie leaves the shelf only when it's handed out through a normal distribution and approved. The reward then shows as **Issued**, and the employee sees it as **Received**.
-- The administrator can **adjust** someone's points (with a reason) or **reset** them to zero to start a new cycle. After a reset, the person can earn every milestone again. Rewards already earned are kept.
+- Points go up to **20,000**, the maximum. Points above it aren't added. The administrator can change the maximum.
+- Employees **spend** points in the **points store**. The administrator decides which goodies are in the store and what each costs, for example a coffee mug or diary for 2,000, a steel bottle for 3,000, a backpack for 4,000, a smart watch for 16,000.
+- An employee with 2,000 points can order a 2,000-point goodie now, or wait until 4,000 for a bigger one. It's their choice.
+- When they place an order, the cost is **taken off their points at once**: 2,000 − 2,000 leaves 0, and 2,400 − 2,000 leaves 400. The engagement team then accepts the order and tells them **where and when to collect** it. If the team rejects it, or the employee cancels before it's accepted, the points come back.
+- The administrator can **adjust** someone's points (with a reason) or **reset** them to zero to start a new cycle. Their **lifetime points** (everything ever earned) are kept for the leaderboard.
+- **Older scheme (optional):** the administrator can switch the store off. Then a goodie is due automatically at every 2,000 points instead, and the team hands it out from **Milestone rewards**. See [Hand out rewards](#hand-out-rewards-milestone-scheme).
 
 ### Create an event
 
@@ -346,6 +360,27 @@ To plan a quarter at once, select **Events → Upload events**, then **Template*
 Select **Choose the Excel file**. The result says how many events were created and how many are upcoming. Rows it couldn't use are listed with the reason (for example an event type that doesn't exist). An event already in the list with the same name and date is skipped, so uploading the same sheet twice is safe. Future events appear under the **Upcoming** tab, on Home and in employees' portals.
 
 ![Upload events](screenshots/52-events-upload.png)
+
+### Goodies for an event: approved before it
+
+Goodies for an event (T-shirts for volunteers, badges for everyone, prizes for the winners) are approved by the manager **before** the event, not after. There's no point asking for approval once the goodies have been handed out.
+
+1. Open the event while it's still upcoming and select **Request goodies**.
+2. Choose each goodie and the quantity. **Add another goodie** adds a line. The available stock is shown next to each item.
+3. Add a note for the manager if it helps (for example "120 registrations") and select **Send for approval** (or **Save draft**).
+
+![Request goodies for an event](screenshots/64-event-goodies.png)
+
+The manager sees it in **Approvals**, marked **For an event on (date): approve before it**. The stock goes down when they approve. If the event date has passed, new goodies requests can't be sent, and a request still waiting is flagged **Event passed**.
+
+![Approvals: event goodies](screenshots/65-approvals-event-goodies.png)
+
+The event's **Event goodies** panel shows, for each goodie, how many were **approved**, how many are **waiting**, how many went out as **prizes**, how many were **returned** and how many are **left**.
+
+![Event goodies panel](screenshots/66-event-goodies-panel.png)
+
+- **Goodie prizes come out of these.** When you hand out a goodie prize for this event (see [winners and prizes](#winners-and-prizes)), it's issued straight from the event's approved goodies: no second approval and no second stock deduction.
+- **Return unused** after the event: enter how many of each came back. It goes to the manager like a stock inward, and the stock goes up when it's approved.
 
 ### Mark attendance
 
@@ -397,7 +432,7 @@ To cancel a prize that hasn't been handed over, select the cross on its row and 
 
 **Handing prizes over: Event prizes** (menu, Engagement; the number shows prizes still to hand out):
 
-- **Goodies to hand out:** tick the people and select **Create distribution and submit**. When the manager approves it, the goodies leave the shelf and the prizes show as issued.
+- **Goodies to hand out:** tick the people and select **Hand out**. A prize whose event had goodies approved before it (and enough of that goodie left) is **issued at once** from them. Any others go on one distribution for the manager; when it's approved, the goodies leave the shelf and the prizes show as issued.
 - **Vouchers and other:** when you've sent the vouchers, tick them and select **Mark issued**, then type the **order or reference number** (for example the Amazon order number). Never type the voucher code itself. The reference, your name and the time are kept.
 - **Export for finance** downloads every prize with the employee, event, voucher amount, status and reference.
 
@@ -407,9 +442,24 @@ To cancel a prize that hasn't been handed over, select the cross on its row and 
 
 Employees see their prizes in their portal under **Your prizes**, as "On the way" and then "Received".
 
-### Hand out rewards
+### Store orders (points store)
 
-Select **Milestone rewards** (the number in the menu is how many are due).
+When employees order goodies with their points, the orders come to the engagement team. Select **Store orders** (the number in the menu is how many are waiting).
+
+![Store orders](screenshots/69-store-orders.png)
+
+1. **New orders** lists orders oldest first, with the employee, their location, the goodies, the points spent and any note. Rows warn you when there isn't enough stock.
+2. Select **Accept and set pickup**. Enter the **pickup place** and the **date and time**, and a note if needed ("Bring your ID card"). Select **Accept order**. The goodies are taken out of stock now and set aside, and the employee sees the place and time in their portal and in the bell.
+3. When they collect, open **Ready for pickup** and select **Mark collected**. **Change pickup** moves the slot if needed.
+4. **Reject** (with a reason the employee sees) gives all the points back. Rejecting an accepted order also puts its goodies back in stock.
+
+![Accept and set the pickup](screenshots/70-accept-pickup.png)
+
+Every movement is in **Stock movements** as **Points store**, with the order number.
+
+### Hand out rewards (milestone scheme)
+
+This applies only when the administrator has switched the points store off. Select **Milestone rewards** (the number in the menu is how many are due).
 
 ![Rewards worklist](screenshots/42-rewards-worklist.png)
 
@@ -564,10 +614,13 @@ Select **Points and rewards rules** (under Administration).
 
 ![Points and rewards rules](screenshots/43-reward-rules.png)
 
+![Points store catalogue](screenshots/67-store-catalogue.png)
+
 - **Points per event type:** select the pencil on a row to change its points, category or description, or to retire it (it stays on old events). **Add event type** creates a new kind of event. New points apply to attendance recorded from then on; points already given don't change.
-- **Milestone goodies:** select the pencil to give a milestone a title and choose its goodie and quantity, or leave it "to be decided". The **Due now** column shows how many people are waiting for that milestone, and the stock count turns red when there isn't enough.
+- **Points store:** the goodies employees can order and the points each costs. **Add goodie** picks the stock item it comes from, the name shown in the store, the points price and an optional description. Select the pencil to change the price or name, or switch **Show in the store** off to hide it. Orders already placed keep the price they were placed at.
+- **Milestone goodies** (only when the store is switched off): select the pencil to give a milestone a title and choose its goodie and quantity, or leave it "to be decided".
 - **Prize positions:** the places that win prizes at events (Winner, Runner-up…) and the bonus points each gives by default. Add positions such as "Best design", change the points, or retire one.
-- **Milestones:** "A goodie every 2,000 points" and "Maximum points 20,000". Change them here; the maximum must be a multiple of the step. The switch decides whether employees see the top-10 leaderboard in their portal.
+- **How employees get goodies:** the **Points store** switch. On (the default), employees spend points in the store. Off, a goodie is due at every milestone instead. "Maximum points" caps everyone's points (20,000). The other switch decides whether employees see the top-10 leaderboard in their portal.
 - **Start a new programme year:** resets everyone's points to zero (type RESET to confirm). Rewards already earned are kept, and the reset is in everyone's points history.
 
 ### Adjust or reset points
@@ -607,17 +660,31 @@ Employees sign in with their work account (or the demo **Employee** button) and 
 
 ![Employee portal](screenshots/48-employee-portal.png)
 
-- **Your points** and a greeting from Mav. When you've just unlocked a reward, the gift box opens and celebrates.
-- **Events attended, goodies received, rewards on the way** and **your rank**.
-- **Your journey to 20,000:** the track from 0 to 20,000 with a gift at every 2,000 points. Green gifts are received, gold ones are earned and on the way, the blue ring is the next one, and the flag shows where you are.
-- **Rewards:** a card for each milestone with its goodie and whether you've received it.
+- **Your points**, your lifetime points and a greeting from Mav telling you what you can get now, or how many points you need for the next goodie. **Spend points** opens the store.
+- **Events attended, goodies received, orders in progress** and **your rank**.
+- **What your points can get:** each goodie in the store with a bar showing how close you are.
 - **Points history:** every event and adjustment, with the balance after.
 - **Coming up:** the next events and the points they give. **Top 10** (if your administrator has switched it on).
 - **Goodies received** lists everything handed to you, with the date and reason. **Events** shows what's coming up and what you've attended.
 
 ![Goodies received](screenshots/49-employee-goodies.png)
 
-Ask Mav anything about your own points: "How many points do I have?", "What goodies have I received?", "When's the next hackathon?"
+### The points store
+
+Select **Points store**.
+
+![Points store](screenshots/68-points-store.png)
+
+1. Goodies you can afford say **You can get this**. The others show how many more points you need and how close you are.
+2. Select **Add to cart**. Use **+** and **−** to change the quantity. The cart shows **your points**, **this order** and what's **left after the order**.
+3. Add a note for the team if you like, then select **Place order**. The points are taken off straight away.
+4. **My orders** shows each order. When the team accepts it, you see **Collect your goodies** with the **place, date and time** (also in the bell). After you collect, it shows **Collected**.
+
+![My orders](screenshots/71-my-orders.png)
+
+You can **cancel** an order until the team accepts it, and your points come back. If the team rejects it, you see their reason and your points come back too.
+
+Ask Mav anything about your own points: "How many points do I have?", "What can I get with my points?", "Where do I collect my order?", "When's the next hackathon?"
 
 ![Ask Mav, employee](screenshots/50-assistant-employee.png)
 
@@ -663,14 +730,20 @@ The stock list was loaded from the Sep 25 tracker. Past handovers can be brought
 **I attended an event but my points haven't changed.**
 Points are added when the executive marks attendance, usually the same day. If it's been a few days, tell the organiser your employee ID; they can add you, or the administrator can adjust your points.
 
-**I crossed 2,000 points. When do I get my goodie?**
-It appears as **On the way** in your portal. The engagement team hands rewards out in batches; once their request is approved, it shows as **Received**.
+**I have 2,000 points. How do I get a goodie?**
+Open **Points store**, add a goodie you can afford to the cart and place the order. The points are taken off at once (2,400 − 2,000 leaves 400). The team accepts it and tells you where and when to collect it, under **My orders** and in the bell. You can also keep saving for a bigger goodie.
+
+**My order was rejected. What happens to my points?**
+They come back straight away, and you see the team's reason under **My orders**.
 
 **My points stopped at 20,000.**
-20,000 is the maximum. The administrator can start a new cycle for you (your points go back to zero and you can earn every milestone again).
+20,000 is the maximum. Spend some in the store, or the administrator can start a new cycle.
+
+**We need goodies for next week's hackathon.**
+Open the event and select **Request goodies** now. The manager approves before the event and the stock goes down then. After the event, goodie prizes come from these, and **Return unused** sends leftovers back.
 
 **Someone was marked present by mistake.**
-On the event page, select the minus button on their row and give a reason. Their points for that event are reversed. A reward they hadn't received yet is cancelled if they drop below its milestone.
+On the event page, select the minus button on their row and give a reason. Their points for that event are reversed.
 
 **The app feels slow.**
 Ask an administrator to open **System status**. It shows the database round trip and, if the app and database are in different regions, exactly how to fix it.

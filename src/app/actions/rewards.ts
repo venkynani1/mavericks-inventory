@@ -234,6 +234,7 @@ const rulesSchema = z.object({
   step: z.coerce.number().int().min(100, "A milestone every 100 points at least").max(100_000),
   cap: z.coerce.number().int().min(100).max(1_000_000),
   leaderboardForEmployees: z.boolean(),
+  rewardMode: z.enum(["store", "milestones"]).optional(),
 })
 
 export async function saveRewardRules(input: z.input<typeof rulesSchema>) {
@@ -244,7 +245,7 @@ export async function saveRewardRules(input: z.input<typeof rulesSchema>) {
     if (v.cap % v.step !== 0) throw new AppError(`The maximum should be a multiple of the step (for example ${v.step * Math.max(1, Math.round(v.cap / v.step))}).`)
     if (v.cap / v.step > 50) throw new AppError("That gives more than 50 milestones. Use a bigger step.")
     await prisma.$transaction(async (tx) => {
-      for (const [key, value] of Object.entries({ rewardStep: v.step, rewardCap: v.cap, leaderboardForEmployees: v.leaderboardForEmployees }))
+      for (const [key, value] of Object.entries({ rewardStep: v.step, rewardCap: v.cap, leaderboardForEmployees: v.leaderboardForEmployees, ...(v.rewardMode ? { rewardMode: v.rewardMode } : {}) }))
         await tx.setting.upsert({ where: { key }, create: { key, value: String(value), updatedBy: admin.id }, update: { value: String(value), updatedBy: admin.id } })
       const wanted: number[] = []
       for (let t = v.step; t <= v.cap; t += v.step) wanted.push(t)
@@ -252,10 +253,10 @@ export async function saveRewardRules(input: z.input<typeof rulesSchema>) {
       await tx.rewardMilestone.updateMany({ where: { threshold: { in: wanted } }, data: { active: true } })
       const have = new Set((await tx.rewardMilestone.findMany({ select: { threshold: true } })).map((m) => m.threshold))
       await tx.rewardMilestone.createMany({ data: wanted.filter((t) => !have.has(t)).map((t) => ({ threshold: t, title: `${t.toLocaleString("en-IN")} points` })) })
-      await audit(tx, { actorId: admin.id, action: "REWARD_RULES.UPDATE", entity: "Setting", summary: `Milestone every ${v.step} points up to ${v.cap}; leaderboard for employees ${v.leaderboardForEmployees ? "on" : "off"}`, after: v })
+      await audit(tx, { actorId: admin.id, action: "REWARD_RULES.UPDATE", entity: "Setting", summary: `${v.rewardMode === "milestones" ? "Milestone rewards" : v.rewardMode === "store" ? "Points store" : "Rewards"}: step ${v.step} points, maximum ${v.cap}; leaderboard for employees ${v.leaderboardForEmployees ? "on" : "off"}`, after: v })
     })
     forget(SETTINGS_TAG)
-    revalidatePath("/admin/rewards")
+    revalidatePath("/", "layout")
   }, "Reward rules saved.")
 }
 
@@ -301,9 +302,9 @@ export async function cancelEventAward(id: string, reason: string) {
 export async function distributeEventAwards(ids: string[], submit: boolean) {
   return run(async () => {
     const user = await assertPermission("rewards:operate")
-    const req = await distributeAwards(ids, { submit }, user)
+    const r = await distributeAwards(ids, { submit }, user)
     refresh("/prizes", "/requests", "/approvals", "/distributions")
-    return { id: req.id, number: req.number }
+    return { id: r.req?.id ?? null, number: r.req?.number ?? null, direct: r.direct }
   })
 }
 

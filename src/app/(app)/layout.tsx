@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db"
 import { employeeAllowed } from "@/lib/nav"
 import { can } from "@/lib/roles"
 import { getUser } from "@/lib/server/session"
+import { getSettings } from "@/lib/server/settings"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app/app-sidebar"
 import { AssistantPanel } from "@/components/app/assistant-panel"
@@ -23,13 +24,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // The three badge counts run as one round trip to the database.
   const [counts] =
     user.role === "EMPLOYEE"
-      ? [{ approvals: 0, mine: 0, rewardsDue: 0, prizesDue: 0 }]
-      : await prisma.$queryRaw<{ approvals: number; mine: number; rewardsDue: number; prizesDue: number }[]>`
+      ? [{ approvals: 0, mine: 0, rewardsDue: 0, prizesDue: 0, ordersDue: 0 }]
+      : await prisma.$queryRaw<{ approvals: number; mine: number; rewardsDue: number; prizesDue: number; ordersDue: number }[]>`
           SELECT
             (SELECT count(*)::int FROM "Request" WHERE status = 'SUBMITTED' AND "createdById" <> ${user.id} AND ${can(user.role, "request:approve")}) AS approvals,
             (SELECT count(*)::int FROM "Request" WHERE "createdById" = ${user.id} AND status IN ('DRAFT', 'REJECTED')) AS mine,
             (SELECT count(*)::int FROM "RewardEarned" WHERE status = 'DUE' AND ${can(user.role, "rewards:operate")}) AS "rewardsDue",
-            (SELECT count(*)::int FROM "EventAward" WHERE status = 'PENDING' AND ${can(user.role, "rewards:operate")}) AS "prizesDue"`
+            (SELECT count(*)::int FROM "EventAward" WHERE status = 'PENDING' AND ${can(user.role, "rewards:operate")}) AS "prizesDue",
+            (SELECT count(*)::int FROM "RedemptionOrder" WHERE status = 'PLACED' AND ${can(user.role, "rewards:operate")}) AS "ordersDue"`
+  const { rewardMode } = await getSettings()
   const open = (await cookies()).get("sidebar_state")?.value !== "false"
   return (
     <SidebarProvider defaultOpen={open} className="flex-col">
@@ -41,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </Suspense>
       <Topbar user={user} />
       <div className="flex flex-1 pt-(--header-height)">
-        <AppSidebar role={user.role} counts={counts} />
+        <AppSidebar role={user.role} counts={counts} mode={rewardMode} />
         <SidebarInset className="min-w-0">
           <div id="main" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 scroll-mt-16 px-4 py-5 outline-none md:px-7 md:py-6">
             {children}

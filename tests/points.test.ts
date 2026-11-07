@@ -41,3 +41,18 @@ describe("pointsForEvent", () => {
     expect(pointsForEvent({ points: 0 }, { points: 600 })).toBe(0)
   })
 })
+
+describe("points store", () => {
+  it("spending points leaves the rest: 2,400 − 2,000 = 400, 2,000 − 2,000 = 0", () => {
+    expect(applyWithinCap(2400, -2000, R.cap)).toMatchObject({ next: 400, applied: -2000 })
+    expect(applyWithinCap(2000, -2000, R.cap)).toMatchObject({ next: 0, applied: -2000 })
+  })
+  it("a refund puts the points back", () => {
+    expect(applyWithinCap(400, 2000, R.cap).next).toBe(2400)
+  })
+  it("with the store on, crossing 2,000 or 4,000 creates no automatic milestone reward", () => {
+    expect(crossedMilestones(1800, 4200, { ...R, milestones: false })).toEqual([])
+    expect(crossedMilestones(1800, 4200, R)).toEqual([2000, 4000])
+  })
+})
+

@@ -251,13 +251,127 @@ async function seedPrizes() {
   return n
 }
 
+/**
+ * Points store and event goodies demo: the store catalogue, a few orders in each state, goodies
+ * approved before a recent hackathon (its goodie prizes come out of them) and a goodies request
+ * waiting for the manager before the next event. Runs on a fresh seed and once on an older demo
+ * database that has no store yet.
+ */
+async function seedStore() {
+  const [exec, mgr] = await Promise.all([prisma.user.findUnique({ where: { email: "executive@mavericks.demo" } }), prisma.user.findUnique({ where: { email: "manager@mavericks.demo" } })])
+  if (!exec || !mgr || (await prisma.rewardCatalogItem.count()) > 0) return 0
+  const year = new Date().getFullYear()
+  const item = async (re: string) => prisma.stockItem.findFirst({ where: { status: "ACTIVE", name: { contains: re, mode: "insensitive" } }, orderBy: { availableQty: "desc" } })
+  const catalogue: [string, string, number, string][] = [
+    ["Coffee mug", "Bot All Coffee Mug", 2000, "Ceramic, Mavericks print"],
+    ["Diary", "Diary - NA - Blue", 2000, "A5, ruled, with the Mavericks logo"],
+    ["Steel bottle", "Bottle - 600 ml - Black", 3000, "600 ml, keeps drinks hot or cold"],
+    ["Backpack", "Bag - Back - Blue", 4000, "Laptop backpack, navy blue"],
+    ["Vacuum flask", "Flask", 6000, "Stainless steel, 500 ml"],
+    ["Mavericks hoodie", "Hoodie", 8000, "Navy, size M (ask the team for other sizes)"],
+    ["Headphones", "Headphones", 10000, "boAt over-ear, wireless"],
+    ["Bluetooth speaker", "Bluetooth Speaker", 12000, "Zebronics portable speaker"],
+    ["Smart watch", "Smart Watch", 16000, "boAt smart watch, black"],
+  ]
+  const made: { id: string; name: string; pointsCost: number; stockItemId: string }[] = []
+  for (const [i, [name, re, cost, description]] of catalogue.entries()) {
+    const it = await item(re)
+    if (!it) continue
+    made.push(await prisma.rewardCatalogItem.create({ data: { name, description, stockItemId: it.id, pointsCost: cost, sortOrder: i } }))
+  }
+  if (!made.length) return 0
+  const by = (n: string) => made.find((m) => m.name === n) ?? made[0]
+
+  // Orders. Points are deducted at order time; stock moves when the team accepts.
+  const now = Date.now()
+  let seq = 0
+  const order = async (empId: string, items: string[], status: "PLACED" | "ACCEPTED" | "COLLECTED", daysAgo: number) => {
+    const emp = await prisma.employee.findUnique({ where: { empId } })
+    const lines = items.map(by)
+    const total = lines.reduce((t, l) => t + l.pointsCost, 0)
+    if (!emp || emp.points < total) return
+    const placedAt = new Date(now - daysAgo * DAY)
+    const number = `RDM-${year}-${String(++seq).padStart(6, "0")}`
+    const accepted = status !== "PLACED"
+    const pickupAt = new Date(status === "ACCEPTED" ? now + DAY : placedAt.getTime() + 2 * DAY)
+    pickupAt.setUTCHours(9, 30, 0, 0) // 3 pm in India
+    const o = await prisma.redemptionOrder.create({
+      data: {
+        number, employeeId: emp.id, status, totalPoints: total, placedById: exec.id, createdAt: placedAt,
+        pickupLocation: accepted ? `${emp.location ?? "Chennai"} office, engagement desk (2nd floor)` : null, pickupAt: accepted ? pickupAt : null, pickupNote: accepted ? "Bring your ID card." : null,
+        decidedById: accepted ? exec.id : null, decidedAt: accepted ? new Date(placedAt.getTime() + 3 * 3600_000) : null,
+        collectedAt: status === "COLLECTED" ? pickupAt : null, collectedById: status === "COLLECTED" ? exec.id : null,
+        lines: { create: lines.map((l) => ({ catalogItemId: l.id, stockItemId: l.stockItemId, name: l.name, pointsCost: l.pointsCost, quantity: 1 })) },
+      },
+    })
+    const after = emp.points - total
+    await prisma.employee.update({ where: { id: emp.id }, data: { points: after } })
+    await prisma.pointsTransaction.create({ data: { employeeId: emp.id, type: "REDEMPTION", points: -total, requested: -total, balanceAfter: after, cycle: emp.cycle, actorId: exec.id, reason: `Store order ${number}`, createdAt: placedAt } })
+    if (accepted)
+      for (const l of lines) {
+        const it = await prisma.stockItem.update({ where: { id: l.stockItemId }, data: { availableQty: { decrement: 1 }, distributedQty: { increment: 1 } } })
+        await prisma.ledgerEntry.create({ data: { stockItemId: l.stockItemId, type: "REDEMPTION", qtyOut: 1, balanceAfter: it.availableQty, actorId: exec.id, note: `Points store ${number} for ${emp.name} (${emp.empId})`, createdAt: new Date(placedAt.getTime() + 3 * 3600_000) } })
+      }
+    return o
+  }
+  const top = await prisma.employee.findMany({ where: { active: true, empId: { not: "2000149999" }, points: { gte: 4000 } }, orderBy: { points: "desc" }, take: 6 })
+  await order("2000149999", ["Coffee mug"], "COLLECTED", 20)
+  if (top[0]) await order(top[0].empId, ["Backpack"], "COLLECTED", 12)
+  if (top[1]) await order(top[1].empId, ["Steel bottle", "Coffee mug"], "ACCEPTED", 2)
+  if (top[2]) await order(top[2].empId, ["Backpack"], "PLACED", 1)
+  if (top[3]) await order(top[3].empId, ["Diary", "Coffee mug"], "PLACED", 0)
+  if (top[4]) await order(top[4].empId, ["Steel bottle"], "COLLECTED", 30)
+  await prisma.counter.upsert({ where: { key: `redemption:${year}` }, create: { key: `redemption:${year}`, value: seq }, update: { value: seq } })
+
+  // Event goodies approved before a recent hackathon; its goodie prizes are taken from them.
+  const nextDst = async () => {
+    const c = await prisma.counter.upsert({ where: { key: `req:DST:${year}` }, create: { key: `req:DST:${year}`, value: 1 }, update: { value: { increment: 1 } } })
+    return `MI-DST-${year}-${String(c.value).padStart(6, "0")}`
+  }
+  const goodies = async (eventName: string, wanted: [string, number][], approved: boolean) => {
+    const ev = await prisma.event.findFirst({ where: { name: eventName }, include: { eventType: true } })
+    if (!ev) return
+    const lines: { stockItemId: string; quantity: number }[] = []
+    for (const [re, q] of wanted) {
+      const it = await item(re)
+      if (it && it.availableQty >= q) lines.push({ stockItemId: it.id, quantity: q })
+    }
+    if (!lines.length) return
+    const at = approved ? new Date(ev.date.getTime() - 5 * DAY) : new Date(now - 3 * 3600_000)
+    const total = lines.reduce((t, l) => t + l.quantity, 0)
+    const r = await prisma.request.create({
+      data: {
+        number: await nextDst(), type: "DISTRIBUTION", eventId: ev.id, createdById: exec.id, title: `Goodies for ${ev.code} ${ev.name}`.slice(0, 120), purpose: "Event goodies",
+        remarks: approved ? "Prizes for the top 4 and badges for participants" : "Expected 80 participants; badges for all, bottles for the volunteers",
+        status: approved ? "APPROVED" : "SUBMITTED", submittedAt: at, decidedAt: approved ? new Date(at.getTime() + 6 * 3600_000) : null, currentLevel: approved ? 1 : 0, requiredLevel: 1,
+        totalQty: total, lineCount: lines.length, createdAt: at,
+        distributionLines: { create: lines.map((l) => ({ stockItemId: l.stockItemId, quantity: l.quantity, distributedOn: ev.date, recipientName: ev.name.slice(0, 120), location: ev.location, purpose: `Event - ${ev.eventType.name}`.slice(0, 80), poc: exec.name, remarks: `Goodies for ${ev.code}, approved before the event` })) },
+      },
+    })
+    await prisma.approvalEvent.create({ data: { requestId: r.id, action: "SUBMITTED", level: 0, actorId: exec.id, createdAt: at } })
+    if (approved) {
+      await prisma.approvalEvent.create({ data: { requestId: r.id, action: "APPROVED", level: 1, actorId: mgr.id, remarks: "Approved for the event", createdAt: new Date(at.getTime() + 6 * 3600_000) } })
+      for (const l of lines) {
+        const it = await prisma.stockItem.update({ where: { id: l.stockItemId }, data: { availableQty: { decrement: l.quantity }, distributedQty: { increment: l.quantity } } })
+        await prisma.ledgerEntry.create({ data: { stockItemId: l.stockItemId, requestId: r.id, type: "DISTRIBUTION", qtyOut: l.quantity, balanceAfter: it.availableQty, actorId: mgr.id, createdAt: new Date(at.getTime() + 6 * 3600_000) } })
+      }
+    }
+  }
+  await goodies("Hackathon: Agentic AI", [["Smart Watch", 2], ["Bluetooth Speaker", 2], ["Plastic Pin Badges", 60]], true)
+  const upcoming = await prisma.event.findFirst({ where: { status: "PLANNED", date: { gte: new Date(now + DAY) } }, orderBy: { date: "asc" } })
+  if (upcoming) await goodies(upcoming.name, [["Plastic Pin Badges", 80], ["Bottle - 600 ml - Black", 10]], false)
+  console.log(`Added the points store (${made.length} goodies), ${seq} demo orders and event goodies.`)
+  return made.length
+}
+
 async function main() {
   if (await prisma.user.count()) {
     // Older databases get any new standard lists (event types, prize positions) without touching existing values.
     await ensureBaseData(prisma)
     const upgraded = await upgradeDemo()
     const prizes = await seedPrizes()
-    if (!upgraded && !prizes) console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
+    const store = await seedStore()
+    if (!upgraded && !prizes && !store) console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
     return
   }
   const password = process.env.SEED_PASSWORD || "Mavericks@2026"
@@ -499,6 +613,7 @@ async function main() {
   })
 
   await seedPrizes()
+  await seedStore()
   await prisma.auditLog.create({ data: { actorId: U.ADMIN.id, action: "SYSTEM.SEED", entity: "System", summary: `Loaded ${rows.length} stock items and ${batches.length} approved distributions from the Sep 25 tracker` } })
   console.log(`Seeded ${rows.length} items, ${batches.length} historical distributions, ${await prisma.employee.count()} employees, ${evNo} events. Demo password: ${password}`)
 }

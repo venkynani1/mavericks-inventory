@@ -195,7 +195,7 @@ export function PrizesWorklist({ rows, canOperate, mode }: { rows: PrizeRow[]; c
     <div>
       {canOperate && (
         <div className="flex flex-wrap items-center gap-2 border-b px-5 py-3 text-sm text-muted-foreground">
-          {sel.size ? <span><span className="font-semibold text-foreground">{sel.size}</span> selected</span> : <span>{mode === "goodies" ? "Select goodie prizes to hand out together on one distribution." : "Select vouchers or other prizes you've sent, then mark them issued."}</span>}
+          {sel.size ? <span><span className="font-semibold text-foreground">{sel.size}</span> selected</span> : <span>{mode === "goodies" ? "Select goodie prizes to hand out. Prizes covered by the event's approved goodies are issued at once; the rest go on one distribution for approval." : "Select vouchers or other prizes you've sent, then mark them issued."}</span>}
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setSel(all ? new Set() : new Set(rows.map((r) => r.id)))}>{all ? "Clear selection" : `Select all ${rows.length}`}</Button>
         </div>
       )}
@@ -205,9 +205,14 @@ export function PrizesWorklist({ rows, canOperate, mode }: { rows: PrizeRow[]; c
           <div className="ml-auto flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSel(new Set())}>Clear</Button>
             {mode === "goodies" ? (
-              <Button size="sm" disabled={pending} onClick={() => submit(() => distributeEventAwards([...sel], true), (r) => { const d = r.data as { id: string; number: string }; toast.success(`${d.number} submitted for approval`); setSel(new Set()); router.push(`/requests/${d.id}`) })}>
+              <Button size="sm" disabled={pending} onClick={() => submit(() => distributeEventAwards([...sel], true), (r) => {
+                const d = r.data as { id: string | null; number: string | null; direct: number }
+                setSel(new Set())
+                if (d.direct) toast.success(`${d.direct} prize${d.direct > 1 ? "s" : ""} issued from the event's approved goodies`)
+                if (d.id) { toast.success(`${d.number} submitted for approval`); router.push(`/requests/${d.id}`) } else router.refresh()
+              })}>
                 {pending ? <Spinner data-icon="inline-start" /> : <GiftIcon data-icon="inline-start" />}
-                Create distribution and submit
+                Hand out
               </Button>
             ) : (
               <Button size="sm" onClick={() => (setRef(""), setError(null), setRefOpen(true))}>
@@ -216,7 +221,7 @@ export function PrizesWorklist({ rows, canOperate, mode }: { rows: PrizeRow[]; c
               </Button>
             )}
           </div>
-          {short > 0 && <p className="w-full text-xs text-pending">Not enough stock for {short} of these. Approval will be blocked until stock is received.</p>}
+          {short > 0 && <p className="w-full text-xs text-pending">Not enough stock on the shelf for {short} of these. Unless the event&apos;s approved goodies cover them, approval will be blocked until stock is received.</p>}
           {error && !refOpen && <p className="w-full text-xs text-rejected">{error}</p>}
         </div>
       )}

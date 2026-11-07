@@ -16,6 +16,8 @@ export type WorkflowSettings = {
   rewards: RewardRules
   /** Employees see the top-10 leaderboard in their portal */
   leaderboardForEmployees: boolean
+  /** "store": employees spend points on goodies from the points store; "milestones": a reward is due at each milestone */
+  rewardMode: "store" | "milestones"
 }
 
 export const DEFAULT_SETTINGS: WorkflowSettings = {
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: WorkflowSettings = {
   level2Threshold: 0,
   rewards: DEFAULT_RULES,
   leaderboardForEmployees: true,
+  rewardMode: "store",
 }
 
 export const SETTINGS_TAG = "settings"
@@ -39,8 +42,9 @@ async function readSettings(): Promise<WorkflowSettings> {
     preventNegativeStock: map.preventNegativeStock ? map.preventNegativeStock === "true" : DEFAULT_SETTINGS.preventNegativeStock,
     escalationHours: Number(map.escalationHours ?? DEFAULT_SETTINGS.escalationHours) || DEFAULT_SETTINGS.escalationHours,
     level2Threshold: Number(map.level2Threshold ?? 0) || 0,
-    rewards: { step, cap: Math.max(step, cap) },
+    rewards: { step, cap: Math.max(step, cap), milestones: map.rewardMode === "milestones" },
     leaderboardForEmployees: map.leaderboardForEmployees ? map.leaderboardForEmployees === "true" : true,
+    rewardMode: map.rewardMode === "milestones" ? "milestones" : "store",
   }
 }
 
