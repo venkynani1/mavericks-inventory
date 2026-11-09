@@ -8,4 +8,5 @@
 8.no chat bot necessity Becuase i dont want to make the app heavy
 9.make only those fields which are neccessary to be shown on their roles
 10.the team wants to move my application into production, give me the frontend , backend accordingly, also how is the sso implemented ?
+11.Cant we do the application in react, fastapi python new tech stack
 
