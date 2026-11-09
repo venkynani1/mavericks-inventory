@@ -1,0 +1,11 @@
+1.approval Method before the event for the goodies the executive should get the approval for the goodies/amazon vouchers before the event like goodie - quanitity , Amazon vouchers - quantity and price the employee names are unknown becuase it is not sure who wins until the event completed
+2.Whatever the collection of the goodies/amazon vouchers while an event completed or we should give an employee a goodie what should happen is a QR should be displayed after scanning the qr the employee is asked for the emp name and the emp id after filling it only the emp is given a goodie and also it reflects in both for the employee and the exeuctive removes manual uploading of excel sheets for the goodies distributed/
+3.There should be Column in exel for goodies received by an emp
+4. I need a dashboard which shows - procured, instock and distriubuted , also if is bag add them irresepctive of color 
+5. any stock <50 should be considered as low stock also no need to show in the dashboard
+6.weekly updation of the fusion report i have added a fusion report excel file in the repo please check what the thing the executive uploads the sheet weekly once and there should a reminder as well for them to update weekly two days before it becomes a week, only acitve employees can be eligble for the points , goodies and all
+7.when an emp raise  for a goodie we need 20 business days to process your goodie if you resign we are not responsible for that that should be the caution for the emp
+8.no chat bot necessity Becuase i dont want to make the app heavy
+9.make only those fields which are neccessary to be shown on their roles
+10.the team wants to move my application into production, give me the frontend , backend accordingly, also how is the sso implemented ?
+
