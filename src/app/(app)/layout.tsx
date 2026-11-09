@@ -8,7 +8,6 @@ import { getUser } from "@/lib/server/session"
 import { getSettings } from "@/lib/server/settings"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app/app-sidebar"
-import { AssistantPanel } from "@/components/app/assistant-panel"
 import { NavProgress } from "@/components/app/nav-progress"
 import { Topbar } from "@/components/app/topbar"
 
@@ -51,7 +50,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </SidebarInset>
       </div>
-      <AssistantPanel name={user.name} />
     </SidebarProvider>
   )
 }

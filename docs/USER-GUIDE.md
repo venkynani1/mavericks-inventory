@@ -14,7 +14,6 @@ This guide walks through every screen and button. You don't need any technical k
 - [Who can do what](#who-can-do-what)
 - [Signing in](#signing-in) and [trying the demo](#trying-the-demo)
 - [Finding your way around](#finding-your-way-around)
-- [Ask Mav, the assistant](#ask-mav-the-assistant)
 - [For Executives](#for-executives): [look up items](#look-up-items) · [record a distribution](#record-a-distribution) · [upload a distribution sheet](#upload-a-distribution-sheet) · [add new items](#add-new-stock-items) · [upload a stock sheet](#upload-a-stock-sheet) · [record stock inward](#record-stock-inward) · [count stock](#count-stock) · [stock movements](#stock-movements) · [drafts and returned requests](#drafts-and-returned-requests)
 - [Events, points and rewards](#events-points-and-rewards): [how points work](#how-points-work) · [create an event](#create-an-event) · [upload events from Excel](#upload-events-from-excel) · [goodies for an event](#goodies-for-an-event-approved-before-it) · [mark attendance](#mark-attendance) · [winners and prizes](#winners-and-prizes) · [store orders](#store-orders-points-store) · [milestone rewards](#hand-out-rewards-milestone-scheme) · [employees and points](#employees-and-points) · [leaderboard](#leaderboard)
 - [For Managers and the Management Authority](#for-managers-and-the-management-authority): [the approval queue](#the-approval-queue) · [approve](#approve-a-request) · [return with remarks](#return-a-request) · [two-level approval](#two-level-approval) · [approve several at once](#approve-several-at-once)
@@ -126,17 +125,17 @@ All demo accounts use the password `Mavericks@2026` if you prefer to type it (op
 
 The screen has three parts, like most large business systems:
 
-- **The dark bar at the top** is always there: the menu button, the search box, **Ask Mav** (the assistant), the **bell** (things that need your attention), the light/dark switch and your name.
+- **The dark bar at the top** is always there: the menu button, the search box, the **bell** (things that need your attention), the light/dark switch and your name.
 - **The menu on the left** is grouped by kind of work: **Inventory** (items, stock movements, stock inward, stock counts), **Fulfilment** (distributions, requests, approvals), **Engagement** (events, employees and points, store orders, event prizes, leaderboard), **Analytics** (reports) and **Administration**. What you see depends on your role. The menu button at the top left folds it to icons.
 - **The page** in the middle.
 
 **Home** is the first page after sign-in:
 
-- **A hello from Mav** with today's date, how many things need you, and the one or two actions your role uses most. Select the cross to hide it for the day.
-- **The number tiles:** On hand, Reserved (in distributions waiting for approval), Free to promise (on hand minus reserved), Handed out in the last 30 days (with a 12-week trend line), Low or out, and Event points in the last four weeks. Select a tile to open the matching list.
-- **Needs your attention:** your to-do list, most urgent first: overdue approvals, requests waiting for you, requests sent back to you, unfinished drafts, items out of stock or running low, rewards due and past events without attendance.
-- **Engagement:** the next events and this quarter's five most active people.
-- **Units handed out per week**, **Where stock went**, **Needs restocking**, **Recent decisions** and **Size runs** (every T-shirt and welcome-kit size side by side; a yellow outline means low, red means gone).
+- **A hello** with today's date, how many things need you, and the one or two actions your role uses most. Select the cross to hide it for the day.
+- **The number tiles:** **Procured** (opening stock plus every approved stock inward), **In stock** (available now), **Distributed** (everything handed out), **In review** (units in distributions waiting for approval) and, for executives, event points in the last four weeks. Select a tile to open the matching list.
+- **Needs your attention:** your to-do list, most urgent first: overdue approvals, requests waiting for you, requests sent back to you, unfinished drafts, store orders to accept, the weekly Fusion report when it's due, upcoming events without goodies approved and past events without attendance.
+- **Stock by product:** procured, in stock and distributed for each product, with **colour variants added together** (a black back bag and a blue back bag show as one **Back Bag**). Select a row to see its variants. Low stock isn't shown on Home; use the **Low** filter on the stock list.
+- **Each role sees what it needs:** executives also get Engagement, the weekly charts and size runs; managers and the authority get Recent decisions; administrators get Engagement and Recent decisions.
 
 ![Home, full page](screenshots/02b-overview-full.png)
 
@@ -160,25 +159,6 @@ When you select a link, a thin blue line runs across the very top of the window 
 
 ---
 
-## Ask Mav, the assistant
-
-Select **Ask Mav** in the top bar. A panel opens on the right. Type a question in plain words, or select one of the suggestions.
-
-![Ask Mav, executive](screenshots/51-assistant-executive.png)
-
-Examples:
-
-- "How many black t-shirts do we have?" (on hand, reserved and free to promise)
-- "Which items are running low?"
-- "What's waiting for my approval?"
-- "Distributions in the last 30 days"
-- "Rewards due", "Show the leaderboard", "Upcoming events"
-- "How many points does 2000150001 have?"
-- "How do I record event attendance?" (step-by-step help)
-
-**Mav only answers from what your role is allowed to see.** An employee asking about someone else's points gets their own instead; a manager can't see the step-by-step help for executive-only tasks. It doesn't answer questions about anything outside Mavericks Inventory. The links under each answer open the page the answer came from. Answers come from live data, so they're always current.
-
----
 
 ## For Executives
 
@@ -248,7 +228,7 @@ For a product you've never stocked. Select **Stock → Add item**.
 1. Fill **Product**, **Category**, and **Size / Colour / Brand** if they apply.
 2. **Stock name** fills itself in the old tracker style ("Product - Size - Colour - Brand"). You can change it.
 3. Leave **Stock code** blank to get the next code automatically (MAV-00045…).
-4. Enter the **Opening quantity** (what's on the shelf now) and a **Reorder level**: the item shows as low stock at or below this number.
+4. Enter the **Opening quantity** (what's on the shelf now). Every item counts as **low stock** when fewer than 50 are available (the administrator can change the number under Approval rules).
 5. Select **Add to draft**.
 
 Items you add go into one draft, so you can add several and submit them together:
@@ -367,9 +347,12 @@ Goodies for an event (T-shirts for volunteers, badges for everyone, prizes for t
 
 1. Open the event while it's still upcoming and select **Request goodies**.
 2. Choose each goodie and the quantity. **Add another goodie** adds a line. The available stock is shown next to each item.
-3. Add a note for the manager if it helps (for example "120 registrations") and select **Send for approval** (or **Save draft**).
+3. For **Amazon vouchers**, select **Add vouchers** and enter the value of each voucher and how many (for example 2 × ₹5,000). Winners' names aren't needed; they're added after the event.
+4. Add a note for the manager if it helps (for example "120 registrations") and select **Send for approval** (or **Save draft**).
 
 ![Request goodies for an event](screenshots/64-event-goodies.png)
+
+![Vouchers for an event](screenshots/72-event-vouchers.png)
 
 The manager sees it in **Approvals**, marked **For an event on (date): approve before it**. The stock goes down when they approve. If the event date has passed, new goodies requests can't be sent, and a request still waiting is flagged **Event passed**.
 
@@ -380,7 +363,22 @@ The event's **Event goodies** panel shows, for each goodie, how many were **appr
 ![Event goodies panel](screenshots/66-event-goodies-panel.png)
 
 - **Goodie prizes come out of these.** When you hand out a goodie prize for this event (see [winners and prizes](#winners-and-prizes)), it's issued straight from the event's approved goodies: no second approval and no second stock deduction.
+- **Vouchers** show how many of each value were approved, how many were given to winners and how many are left.
 - **Return unused** after the event: enter how many of each came back. It goes to the manager like a stock inward, and the stock goes up when it's approved.
+
+### Goodies desk (QR code)
+
+Hand out goodies at the event without any Excel sheet.
+
+1. On the event, select **Goodies desk (QR)**. Choose the goodie (only goodies approved for this event are listed, with how many are left) and how many each person gets, then **Open desk and show QR**. Put the screen or a printout where people can scan it.
+2. Each employee scans the code with their phone, enters their **employee ID** and **name**, and selects **Claim my goodie**. No sign-in is needed. Only employees **active in the Fusion report** can claim, and only once per event.
+3. Their claim appears on your screen under **Waiting at the desk** (it updates by itself). A yellow warning means the name they typed doesn't match the Fusion name; check their ID card. Select **Hand over**, or the cross to reject.
+4. Handing over records the goodie against the event's approved goodies (no new stock movement), marks the person present (so they get the event's points), and shows it in their portal under **Goodies received**. Their phone changes to **Enjoy your goodie!**
+5. **Close desk** when you're done; the QR code stops working.
+
+![Goodies desk](screenshots/74-goodies-desk.png)
+
+![Claim waiting at the desk](screenshots/76-desk-waiting.png)
 
 ### Mark attendance
 
@@ -470,7 +468,11 @@ This applies only when the administrator has switched the points store off. Sele
 
 ### Employees and points
 
-**Employees and points** lists everyone with their points, a bar towards 20,000, events attended and rewards due. Tabs show **Active**, **With points**, **Reward due** and **Inactive**; you can sort by name, filter by department and search. **Export** downloads the list.
+**Employees and points** lists everyone with their BU, **Fusion status** (active, or resigned with the last working date), points, events attended and **goodies received** (hover to see which). Tabs show **Active**, **With points** and **Inactive**; you can sort by name, filter by BU and search. **Export** downloads the list to Excel, including a **Goodies received** column and the list of goodies for each person.
+
+**Weekly Fusion report.** Once a week, select **Upload Fusion report** and choose the Fusion Connect report (.xlsx) exactly as exported. New joiners are added, and everyone is marked active or resigned from the **DHR Status** column. **Only active employees** can earn points, order from the store, win prizes or collect goodies. The file is read on your computer and only the needed columns (ID, name, status, last working date, designation, grade, base location, BU) are sent. The banner above the list shows when it was last uploaded and when the next one is due. From two days before the week is up, the bell and Home remind you; after that it shows as overdue.
+
+![Fusion upload](screenshots/73-fusion-upload.png)
 
 ![Employees](screenshots/38-employees.png)
 
@@ -677,16 +679,16 @@ Select **Points store**.
 
 1. Goodies you can afford say **You can get this**. The others show how many more points you need and how close you are.
 2. Select **Add to cart**. Use **+** and **−** to change the quantity. The cart shows **your points**, **this order** and what's **left after the order**.
-3. Add a note for the team if you like, then select **Place order**. The points are taken off straight away.
+3. Add a note for the team if you like, read the note about processing time and tick **I understand**: your goodie takes up to **20 business days** to process, and if you resign before it's handed over it can't be delivered and the points aren't refunded. Then select **Place order**. The points are taken off straight away.
 4. **My orders** shows each order. When the team accepts it, you see **Collect your goodies** with the **place, date and time** (also in the bell). After you collect, it shows **Collected**.
 
 ![My orders](screenshots/71-my-orders.png)
 
 You can **cancel** an order until the team accepts it, and your points come back. If the team rejects it, you see their reason and your points come back too.
 
-Ask Mav anything about your own points: "How many points do I have?", "What can I get with my points?", "Where do I collect my order?", "When's the next hackathon?"
+**Collecting a goodie at an event:** at the goodies desk, scan the QR code with your phone, enter your **employee ID** and **name**, and select **Claim my goodie**. Show the screen at the desk; it changes to **Enjoy your goodie!** when the team hands it over, and the goodie appears under **Goodies received**. One per person per event, active employees only.
 
-![Ask Mav, employee](screenshots/50-assistant-employee.png)
+![Claim a goodie by QR](screenshots/75-claim-form.png)
 
 ---
 

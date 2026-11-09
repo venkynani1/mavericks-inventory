@@ -48,7 +48,6 @@ flowchart LR
 
 Nothing else is required: no email server, no file storage, no queue. Uploaded Excel files are read in memory and not stored.
 
-**Optional:** the assistant ("Ask Mav") works out of the box with built-in answers. If you add an `ANTHROPIC_API_KEY`, it uses Claude to understand free-form questions; it still only reads data through the same role-checked lookups. The app then also calls `https://api.anthropic.com` (allow it through any outbound firewall).
 
 **Time zone.** Dates on screen and in exports are shown in India time (Asia/Kolkata), whatever region the servers are in.
 
@@ -87,11 +86,6 @@ The app is configured only through these settings. On Vercel/AWS/Azure you enter
 | `BOOTSTRAP_ADMIN_PASSWORD` | For a production start | A temporary password (10+ characters) for that first sign-in. The admin must change it straight away. | `Temp-Start-2026!` |
 | `DEMO_MODE` | No | Demo sign-in buttons show automatically when the demo accounts exist. `false` hides them, and also lets the demo accounts' passwords and roles be changed (they're locked otherwise, so a shared demo link keeps working). Use `false` in production. | `false` |
 | `DEMO_PASSWORD` | No | The password the one-click demo buttons use, if you seeded with a different `SEED_PASSWORD`. | `Mavericks@2026` |
-| `GEMINI_API_KEY` | No | **Free option.** Turns on Google Gemini for the assistant (key from Google AI Studio). See [Make the assistant smarter](#make-the-assistant-smarter-free-or-paid). | `AIza…` |
-| `GROQ_API_KEY` | No | **Free option.** Turns on Groq (open models such as Llama) for the assistant. | `gsk_…` |
-| `ANTHROPIC_API_KEY` | No | Turns on Claude for the assistant (paid, pay as you go). Takes priority over the others. | `sk-ant-…` |
-| `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, `AI_PROVIDER_NAME` | No | Any other OpenAI-compatible service (OpenRouter, Azure OpenAI, OpenAI). | `https://openrouter.ai/api/v1` |
-| `ASSISTANT_MODEL` | No | Overrides the model name for whichever service is used. Defaults: Claude `claude-haiku-5-5`, Gemini `gemini-3.1-flash-lite` (falls back to other Gemini models when one is busy or retired), Groq `llama-3.3-70b-versatile`. | `gemini-3.1-flash-lite` |
 | `DB_POOL_SIZE` | No | Database connections per app instance (default 10). Pages run several queries side by side; a small pool makes them queue. Use your provider's **pooled** address with it. | `10` |
 | `SSO_DEFAULT_ROLE` | No (SSO) | Role given to people who sign in with SSO but have no app role in the directory. `EMPLOYEE` lets every employee see their own points. Empty refuses them. | `EMPLOYEE` |
 | `SEED_PASSWORD` | No | Password given to the demo users when you load demo data. | `Mavericks@2026` |
@@ -1165,39 +1159,13 @@ CREATE UNIQUE INDEX "User_ssoSubject_key" ON "User"("ssoSubject");
 
 ---
 
-### Make the assistant smarter (free or paid)
-
-Without a key, "Ask Mav" uses built-in answers: it recognises common questions (points, low stock, approvals, events, rewards, how-to). With a key, an AI model understands any wording and can combine several lookups. Either way it reads data only through the same role-checked lookups, so an employee still sees only their own information.
-
-**Free: Google Gemini**
-
-1. Go to **aistudio.google.com**, sign in with a Google account, select **Get API key → Create API key**, and copy it.
-2. Vercel: project → **Settings → Environment Variables** → add `GEMINI_API_KEY` with the key, for Production and Preview → **Save**.
-3. **Deployments → ⋯ → Redeploy**. Open Ask Mav: the line under the box says "Powered by Gemini". **System status** also shows which service and model are in use.
-
-**Free: Groq**
-
-1. Go to **console.groq.com**, sign in, **API Keys → Create API Key**, copy it.
-2. Add `GROQ_API_KEY` in Vercel the same way and redeploy.
-
-**Paid, best quality: Claude.** Create a key at **console.anthropic.com** (pay as you go) and add `ANTHROPIC_API_KEY`.
-
-Notes:
-
-- Free tiers have rate limits and the providers' own terms, which can change; check them on the provider's site. Free tiers may use the questions to improve their models, so for production with real employee data use a paid tier or your company's approved provider (for example Azure OpenAI through `AI_API_KEY` / `AI_BASE_URL`).
-- If the AI service fails or hits its limit, the assistant falls back to built-in answers automatically, so it never stops working.
-- If a provider retires a default model, set `ASSISTANT_MODEL` to a current one from its model list.
-- Keys go only in the hosting platform's settings, never in the code or GitHub.
-
----
-
 ## 16. Performance: keep the app fast
 
 What was done in the code:
 
 - **Fewer trips to the database.** The menu badge counts are one query. The approval queue checks stock for all requests in two queries instead of two per request. Settings and the lists people pick from are cached and refreshed the moment an administrator changes them.
 - **Queries run side by side.** Pages start all their queries at once, and the connection pool allows 10 at a time (`DB_POOL_SIZE`) so they don't queue.
-- **Nothing slow on the first paint.** The notification bell and the assistant load after the page appears. The 3D mascot downloads only on the pages that show it and is skipped for people who prefer reduced motion.
+- **Nothing slow on the first paint.** The notification bell loads after the page appears. There is no chatbot or 3D library, so the pages stay light.
 - **Instant feedback.** A thin progress line appears the moment a link is clicked.
 
 Measured with a database 50 ms away (a typical cross-region gap): the approval queue went from 0.75 s to 0.4 s; most pages are 0.2 to 0.5 s. In the same region, pages are well under 0.2 s.
@@ -1219,27 +1187,26 @@ What you do when hosting:
 flowchart TB
   subgraph Browser
     UI[Pages: React Server Components + small client islands]
-    Mav[Ask Mav panel]
+    QR[Public QR claim page /claim/…]
   end
   subgraph App[Next.js app]
     MW[middleware: session cookie check]
     RSC[Server components: read data]
     SA[Server actions: every change, permission checked]
-    API[/api: uploads, reports, templates, assistant, notifications, health, SSO/]
+    API[/api: uploads, reports, templates, notifications, health, SSO/]
     WF[workflow.ts: maker-checker, stock posting, ledger]
     RW[rewards.ts: points, milestones, reward fulfilment]
-    AS[assistant.ts: role-scoped tools]
+    ST[store.ts, event-goodies.ts, claims.ts, fusion.ts]
   end
   DB[(PostgreSQL)]
-  LLM[Claude API, optional]
   UI --> MW --> RSC --> DB
   UI --> SA --> WF --> DB
   SA --> RW --> DB
-  Mav --> API --> AS --> DB
-  AS -. only if ANTHROPIC_API_KEY .-> LLM
+  SA --> ST --> DB
+  QR --> SA
 ```
 
-**Data model (main tables).** `StockItem`, `Request` (types: distribution, stock inward, new stock items, stock count), its lines (`DistributionLine`, `ReceiptLine`, `StockCountLine`), `ApprovalEvent`, `LedgerEntry` (insert-only), `User`, `AuditLog`. Engagement: `Employee` (points, lifetime points, cycle), `EventType` (points per type), `Event`, `Attendance` (one row per person per event), `PointsTransaction` (every change with the balance after), `RewardMilestone` (threshold, goodie), `RewardEarned` (due, in approval, issued, cancelled; linked to the distribution line that handed it out).
+**Data model (main tables).** `StockItem`, `Request` (types: distribution, stock inward, new stock items, stock count), its lines (`DistributionLine`, `ReceiptLine`, `StockCountLine`), `ApprovalEvent`, `LedgerEntry` (insert-only), `User`, `AuditLog`. Engagement: `Employee` (points, lifetime points, cycle), `EventType` (points per type), `Event`, `Attendance` (one row per person per event), `PointsTransaction` (every change with the balance after), `RewardMilestone` (threshold, goodie), `RewardEarned` (due, in approval, issued, cancelled; linked to the distribution line that handed it out), `RewardCatalogItem` and `RedemptionOrder` (points store), `EventVoucherLine` (vouchers approved before an event), `EventClaim` (goodies collected at the QR desk), `FusionImport` (weekly HR report uploads).
 
 **Rules that keep the numbers right.**
 
@@ -1249,9 +1216,7 @@ flowchart TB
 - A reward is issued only when the distribution carrying it is approved; deleting or editing that draft puts the reward back to due.
 - Every permission is checked on the server (`assertPermission`), never only by hiding a button. Employees are redirected away from every staff page by the layout.
 
-**Assistant scope.** Each assistant tool declares which roles may use it; the list offered for a question is filtered by the signed-in role, and each tool checks again when it runs (an employee's points lookup only ever reads their own record). Claude, when enabled, can only call these tools; it never sees the database directly.
-
-**Tests.** `npm test` (unit: points rules, access control), `npm run e2e` (62 checks through a real browser), `npm run sso-check` (16 checks against a mock identity provider). See [TEST-PLAN.md](TEST-PLAN.md).
+**Tests.** `npm test` (unit: points rules, access control), `npm run e2e` (95 checks through a real browser), `npm run sso-check` (16 checks against a mock identity provider). See [TEST-PLAN.md](TEST-PLAN.md).
 
 ---
 
@@ -1264,5 +1229,4 @@ flowchart TB
 - [ ] Approval rules, points per event type, milestone goodies, step and maximum set by the administrator
 - [ ] Custom domain with HTTPS; Vercel Authentication off for the production domain only if the app's own sign-in is the gate you want
 - [ ] `/api/health` added to an uptime monitor; alerts go to the support team
-- [ ] If `ANTHROPIC_API_KEY` is used: key in the secret store, usage limits set in the Anthropic console, outbound access to `api.anthropic.com` allowed
 - [ ] UAT run against [TEST-PLAN.md](TEST-PLAN.md) scenarios and signed off

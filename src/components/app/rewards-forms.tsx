@@ -178,7 +178,7 @@ export function EventDialog({ event, types, locked }: { event?: EventInput & { i
   )
 }
 
-type AttResult = { added: number; alreadyPresent: number; unknown: string[]; created: number; capped: number; milestones: { empId: string; name: string; thresholds: number[] }[]; points: number; rows?: number }
+type AttResult = { added: number; alreadyPresent: number; unknown: string[]; created: number; capped: number; milestones: { empId: string; name: string; thresholds: number[] }[]; points: number; rows?: number; inactive?: string[]; fusion?: boolean }
 
 function AttendanceSummary({ r }: { r: AttResult }) {
   return (
@@ -201,7 +201,13 @@ function AttendanceSummary({ r }: { r: AttResult }) {
       {r.unknown.length > 0 && (
         <p className="text-rejected">
           Not found ({r.unknown.length}): {r.unknown.slice(0, 15).join(", ")}
-          {r.unknown.length > 15 && "…"}. Add them under Employees, or upload a sheet with their names.
+          {r.unknown.length > 15 && "…"}. {r.fusion ? "They aren't in the latest Fusion report, so they can't get points." : "Add them under Employees, or upload a sheet with their names."}
+        </p>
+      )}
+      {!!r.inactive?.length && (
+        <p className="text-pending">
+          Not active in Fusion ({r.inactive.length}): {r.inactive.slice(0, 15).join(", ")}
+          {r.inactive.length > 15 && "…"}. Only active employees get points.
         </p>
       )}
     </div>

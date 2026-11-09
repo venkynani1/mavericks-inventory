@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/server/settings"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Prisma } from "@prisma/client"
@@ -22,6 +23,7 @@ type SP = { q?: string; category?: string; state?: string; page?: string }
 export default async function StockPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requireUser()
   const sp = await searchParams
+  const settings = await getSettings()
   const page = Math.max(1, Number(sp.page) || 1)
   const categories = await prisma.category.findMany({ where: { active: true }, orderBy: { name: "asc" } })
   const cat = categories.find((c) => c.id === sp.category || c.name === sp.category)
@@ -40,7 +42,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   let idFilter: string[] | undefined
   if (state === "low" || state === "out") {
     const rows = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "StockItem" WHERE status = 'ACTIVE' AND ${state === "out" ? Prisma.sql`"availableQty" <= 0` : Prisma.sql`"availableQty" > 0 AND "availableQty" <= "reorderLevel"`}`
+      SELECT id FROM "StockItem" WHERE status = 'ACTIVE' AND ${state === "out" ? Prisma.sql`"availableQty" <= 0` : Prisma.sql`"availableQty" > 0 AND "availableQty" < ${settings.lowStockBelow}`}`
     idFilter = rows.map((r) => r.id)
   }
   if (idFilter) where.id = { in: idFilter }
@@ -50,7 +52,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
     prisma.stockItem.count({ where }),
     prisma.$queryRaw<{ active: bigint; low: bigint; out: bigint; draft: bigint }[]>`
       SELECT count(*) FILTER (WHERE status='ACTIVE') AS active,
-             count(*) FILTER (WHERE status='ACTIVE' AND "availableQty" > 0 AND "availableQty" <= "reorderLevel") AS low,
+             count(*) FILTER (WHERE status='ACTIVE' AND "availableQty" > 0 AND "availableQty" < ${settings.lowStockBelow}) AS low,
              count(*) FILTER (WHERE status='ACTIVE' AND "availableQty" <= 0) AS out,
              count(*) FILTER (WHERE status='DRAFT') AS draft
       FROM "StockItem"`,
@@ -155,14 +157,14 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                     {i.status === "DRAFT" ? (
                       <span className="num text-sm text-muted-foreground">{i.openingQty} opening, pending</span>
                     ) : (
-                      <StockGauge available={i.availableQty} total={i.openingQty + i.receivedQty} reorder={i.reorderLevel} className="max-sm:min-w-0 max-sm:[&>div:first-child]:hidden" />
+                      <StockGauge available={i.availableQty} total={i.openingQty + i.receivedQty} reorder={settings.lowStockBelow - 1} className="max-sm:min-w-0 max-sm:[&>div:first-child]:hidden" />
                     )}
                   </TableCell>
                   <TableCell className="num hidden text-right xl:table-cell">{reserved.get(i.id) ? fmtNum(reserved.get(i.id)!) : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="num hidden text-right font-medium xl:table-cell">{i.status === "DRAFT" ? "—" : fmtNum(Math.max(0, i.availableQty - (reserved.get(i.id) ?? 0)))}</TableCell>
                   <TableCell className="hidden lg:table-cell">{i.status === "DRAFT" ? "—" : (() => { const cv = cover(i.id, i.availableQty); return <span className={`num text-sm ${cv.tone}`}>{cv.label}</span> })()}</TableCell>
                   <TableCell className="hidden pr-5 sm:table-cell">
-                    <ItemStateBadge available={i.availableQty} reorder={i.reorderLevel} status={i.status} />
+                    <ItemStateBadge available={i.availableQty} reorder={settings.lowStockBelow - 1} status={i.status} />
                   </TableCell>
                 </TableRow>
               ))}

@@ -129,6 +129,7 @@ const CART_KEY = "mi-store-cart"
 export function StoreFront({ products, points, openOrders }: { products: StoreProduct[]; points: number; openOrders: number }) {
   const [cart, setCart] = useState<Record<string, number>>({})
   const [note, setNote] = useState("")
+  const [ack, setAck] = useState(false)
   const { pending, error, submit } = useSubmit()
   const router = useRouter()
 
@@ -247,11 +248,19 @@ export function StoreFront({ products, points, openOrders }: { products: StorePr
               <FieldLabel htmlFor="st-note">Note for the team (optional)</FieldLabel>
               <Input id="st-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. I sit in Chennai, 4th floor" />
             </Field>
+            <div role="note" className="rounded-lg border border-pending/40 bg-pending-soft/60 p-3 text-xs">
+              <p className="font-semibold text-foreground">Please note</p>
+              <p className="mt-1 text-muted-foreground">Your goodie takes up to <span className="font-medium text-foreground">20 business days</span> to process. If you resign before it&apos;s handed over, we can&apos;t deliver it and the points aren&apos;t refunded.</p>
+              <label className="mt-2 flex items-start gap-2 text-foreground">
+                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" checked={ack} onChange={(e) => setAck(e.target.checked)} />
+                <span>I understand</span>
+              </label>
+            </div>
             <ErrorNote error={error} />
             <Button
-              disabled={pending || after < 0}
+              disabled={pending || after < 0 || !ack}
               onClick={() =>
-                submit(() => placeStoreOrder(lines.map((l) => ({ catalogItemId: l.id, quantity: l.qty })), note), (r) => {
+                submit(() => placeStoreOrder(lines.map((l) => ({ catalogItemId: l.id, quantity: l.qty })), note, ack), (r) => {
                   const d = r.data as { number: string; balance: number }
                   toast.success(`Order ${d.number} placed. ${fmtNum(d.balance)} points left. The team will tell you where and when to collect it.`)
                   save({})
@@ -418,13 +427,22 @@ export function OrderActions({ order, locations }: { order: OrderForActions; loc
 export function EventGoodiesDialog({ eventId, eventName, items }: { eventId: string; eventName: string; items: StockOption[] }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<{ stockItemId: string; quantity: string }[]>([{ stockItemId: "", quantity: "" }])
+  const [vouchers, setVouchers] = useState<{ denomination: string; quantity: string }[]>([])
   const [note, setNote] = useState("")
   const { pending, error, setError, submit } = useSubmit()
   const router = useRouter()
-  const reset = () => (setRows([{ stockItemId: "", quantity: "" }]), setNote(""), setError(null))
+  const reset = () => (setRows([{ stockItemId: "", quantity: "" }]), setVouchers([]), setNote(""), setError(null))
+  const voucherTotal = vouchers.reduce((s, v) => s + Number(v.denomination || 0) * Number(v.quantity || 0), 0)
   const send = (submitNow: boolean) =>
     submit(
-      () => requestGoodiesForEvent(eventId, rows.filter((r) => r.stockItemId || r.quantity).map((r) => ({ stockItemId: r.stockItemId, quantity: Number(r.quantity) })), note, submitNow),
+      () =>
+        requestGoodiesForEvent(
+          eventId,
+          rows.filter((r) => r.stockItemId || r.quantity).map((r) => ({ stockItemId: r.stockItemId, quantity: Number(r.quantity) })),
+          note,
+          submitNow,
+          vouchers.filter((v) => v.denomination || v.quantity).map((v) => ({ provider: "Amazon", denomination: Number(v.denomination), quantity: Number(v.quantity) })),
+        ),
       (r) => {
         const d = r.data as { id: string; number: string }
         toast.success(submitNow ? `${d.number} sent to the manager for approval` : `${d.number} saved as a draft`)
@@ -442,8 +460,8 @@ export function EventGoodiesDialog({ eventId, eventName, items }: { eventId: str
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Goodies for {eventName}</DialogTitle>
-          <DialogDescription>List what the event needs. The manager approves before the event and the stock goes down at approval. Goodie prizes for this event are then taken from these, with no second approval.</DialogDescription>
+          <DialogTitle>Goodies and vouchers for {eventName}</DialogTitle>
+          <DialogDescription>List what the event needs: goodies by quantity, Amazon vouchers by number and value. Winners&apos; names aren&apos;t needed yet. The manager approves before the event and the stock goes down at approval. Prizes and goodies collected at the event are then taken from these, with no second approval.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           {rows.map((r, i) => {
@@ -465,6 +483,23 @@ export function EventGoodiesDialog({ eventId, eventName, items }: { eventId: str
               <PlusIcon data-icon="inline-start" />
               Add another goodie
             </Button>
+          </div>
+          <div className="mt-2 flex flex-col gap-2 border-t pt-3">
+            <p className="text-sm font-medium">Amazon vouchers</p>
+            {vouchers.map((v, i) => (
+              <div key={i} className="grid grid-cols-[1fr_6rem_auto] items-center gap-2">
+                <Input aria-label={`Voucher value ${i + 1}`} inputMode="numeric" placeholder="Value of each voucher, ₹" value={v.denomination} onChange={(e) => setVouchers(vouchers.map((y, j) => (j === i ? { ...y, denomination: e.target.value.replace(/[^0-9]/g, "") } : y)))} />
+                <Input aria-label={`Number of vouchers ${i + 1}`} inputMode="numeric" placeholder="How many" value={v.quantity} onChange={(e) => setVouchers(vouchers.map((y, j) => (j === i ? { ...y, quantity: e.target.value.replace(/[^0-9]/g, "") } : y)))} />
+                <Button variant="ghost" size="icon-sm" aria-label={`Remove voucher line ${i + 1}`} onClick={() => setVouchers(vouchers.filter((_, j) => j !== i))}><Trash2Icon /></Button>
+              </div>
+            ))}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => setVouchers([...vouchers, { denomination: "", quantity: "" }])}>
+                <PlusIcon data-icon="inline-start" />
+                Add vouchers
+              </Button>
+              {voucherTotal > 0 && <span className="num text-sm text-muted-foreground">Total ₹{fmtNum(voucherTotal)}</span>}
+            </div>
           </div>
           <Field>
             <FieldLabel htmlFor="eg-note">Note for the manager (optional)</FieldLabel>

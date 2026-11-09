@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-type S = { approvalLevels: 1 | 2; level2Threshold: number; preventNegativeStock: boolean; escalationHours: number }
+type S = { approvalLevels: 1 | 2; level2Threshold: number; preventNegativeStock: boolean; escalationHours: number; lowStockBelow: number }
 
 export function WorkflowForm({ initial }: { initial: S }) {
   const [v, setV] = useState(initial)
@@ -58,6 +58,11 @@ export function WorkflowForm({ initial }: { initial: S }) {
           <FieldLabel htmlFor="esc">Flag requests waiting longer than (hours)</FieldLabel>
           <Input id="esc" type="number" min={1} max={720} className="num" value={v.escalationHours} onChange={(e) => setV({ ...v, escalationHours: Number(e.target.value) })} />
           <FieldDescription>Overdue requests are highlighted on the dashboard, the approval queue and the Pending Approval report.</FieldDescription>
+        </Field>
+        <Field className="max-w-sm">
+          <FieldLabel htmlFor="low">Low stock when fewer than</FieldLabel>
+          <Input id="low" type="number" min={1} className="num" value={v.lowStockBelow} onChange={(e) => setV({ ...v, lowStockBelow: Number(e.target.value) })} />
+          <FieldDescription>Items with fewer than this many available show as low stock in the stock list, reports and the bell (50 by default).</FieldDescription>
         </Field>
       </FieldGroup>
 

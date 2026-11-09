@@ -92,6 +92,7 @@ const settingsSchema = z.object({
   level2Threshold: z.coerce.number().int().min(0).max(1_000_000),
   preventNegativeStock: z.boolean(),
   escalationHours: z.coerce.number().int().min(1, "At least 1 hour").max(720),
+  lowStockBelow: z.coerce.number().int().min(1, "At least 1").max(1_000_000).optional(),
 })
 
 export async function saveSettings(input: z.input<typeof settingsSchema>) {
@@ -101,9 +102,9 @@ export async function saveSettings(input: z.input<typeof settingsSchema>) {
     const before = Object.fromEntries((await prisma.setting.findMany()).map((s) => [s.key, s.value]))
     const entries = Object.entries(v).map(([key, value]) => ({ key, value: String(value) }))
     await prisma.$transaction(entries.map((e) => prisma.setting.upsert({ where: { key: e.key }, create: { ...e, updatedBy: admin.id }, update: { value: e.value, updatedBy: admin.id } })))
-    await audit(prisma, { actorId: admin.id, action: "SETTINGS.UPDATE", entity: "Setting", summary: `Workflow rules updated: ${v.approvalLevels} level(s), stock guard ${v.preventNegativeStock ? "on" : "off"}`, before, after: v })
+    await audit(prisma, { actorId: admin.id, action: "SETTINGS.UPDATE", entity: "Setting", summary: `Workflow rules updated: ${v.approvalLevels} level(s), stock guard ${v.preventNegativeStock ? "on" : "off"}${v.lowStockBelow ? `, low stock below ${v.lowStockBelow}` : ""}`, before, after: v })
     forget(SETTINGS_TAG)
-    revalidatePath("/admin/workflow")
+    revalidatePath("/", "layout")
   }, "Workflow rules saved. New submissions use them; requests already in review keep their levels.")
 }
 

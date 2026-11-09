@@ -19,10 +19,10 @@ This document says what is tested, how, and what a business user should try befo
 | Level | Tool | What it proves | Count |
 | --- | --- | --- | --- |
 | Static | TypeScript (`npm run typecheck`), ESLint (`npm run lint`) | No type errors, no unsafe patterns | whole codebase |
-| Unit | Vitest (`npm test`) | Points rules (cap, milestones, spending and refunds, progress, overrides) and role permissions (who may do what, which menu each role sees, store or milestone menus) | 27 tests |
-| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, event goodies approved before the event, points, the points store, rewards, stock counts, the employee portal, the assistant, notifications | 89 checks |
+| Unit | Vitest (`npm test`) | Points rules (cap, milestones, spending and refunds, progress, overrides), role permissions, stock by product (colour variants added together), the QR desk name check and 20 business days | 30 tests |
+| End-to-end | Playwright (`npm run e2e`) | Every user flow through a real browser against a real database: stock, approvals, uploads, reports, administration, events, event goodies approved before the event, points, the points store, rewards, stock counts, the employee portal, Fusion report upload, the QR goodies desk, notifications | 95 checks |
 | Single sign-on | Playwright + mock identity provider (`npm run sso-check`) | Code flow with PKCE, state and nonce; account creation and linking; role sync; employee role; refusals; SSO-only mode | 16 checks |
-| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 89 checks |
+| Deployed site | GitHub Action "Check deployed site" | The same end-to-end checks against a live address | 95 checks |
 
 ## 2. How to run the tests
 
@@ -59,11 +59,13 @@ The end-to-end suite, in order (each line is one check):
 
 **Event goodies, approved before the event:** the executive requests goodies for an upcoming event and stock doesn't move · the manager's queue says it's for an event and must be approved before it · approval takes the goodies out of stock · a goodie prize at that event is issued from its approved goodies with no second approval and no second stock drop · unused goodies go back to stock once the return is approved · goodies can't be requested for an event that has passed.
 
-**Points store:** admin adds a goodie with its points price · the cart shows the points left after the order (for example 6,400 − 2,000 = 4,400) and goodies out of reach can't be added · placing the order deducts the points at once · the team accepts with a pickup place and time and the goodie leaves stock · the employee sees where and when to collect · the team marks it collected · a rejected order refunds the points with the reason in the history · the assistant tells the employee what their points can get.
+**Points store:** admin adds a goodie with its points price · the cart shows the points left after the order (for example 6,400 − 2,000 = 4,400) and goodies out of reach can't be added · placing the order deducts the points at once · the team accepts with a pickup place and time and the goodie leaves stock · the employee sees where and when to collect · the team marks it collected · a rejected order refunds the points with the reason in the history.
 
 **Stock count and movements:** a count sends only the difference for approval · approval adjusts stock by the difference · the adjustment appears in stock movements · system status shows regions and latency.
 
-**Employee portal and assistant:** one click signs in as the demo employee · employees can't open staff pages · the assistant answers an employee about their own points only · the assistant answers an executive from live stock data · the notification bell lists what needs attention.
+**Vouchers, Fusion report and QR desk:** Amazon vouchers (2 × ₹5,000) approved before the event without names · the weekly Fusion reminder shows two days before it's due · a 3,002-row Fusion report uploads in parts, adds joiners and marks a resignation inactive · a resigned employee gets no points and unknown IDs aren't created · the desk shows a QR code · an employee claims on a phone without signing in; a resigned employee is refused · the executive hands it over, the phone updates, and it comes out of the event's approved goodies · one goodie per person per event · the employees list and Excel export show goodies received.
+
+**Employee portal:** one click signs in as the demo employee · employees can't open staff pages · the notification bell lists what needs attention. The store order needs the 20-business-days acknowledgement.
 
 **General:** Ctrl+K search · dark mode and phone layout.
 
@@ -96,8 +98,10 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | 13 | Someone hits 20,000 | Administrator | Adjust a person near the cap by more than the gap | Stops at 20,000 with "limited by the cap" in history |
 | 14 | New programme year | Administrator | Reset everyone's points (type RESET) | All at 0, cycle +1; old rewards kept; each employee's history shows the reset |
 | 15 | Employee checks their progress | Employee | Sign in, open My dashboard and Goodies received | Own points, progress track, rewards and goodies; no menu items for stock or other people |
-| 16 | Employee tries to see someone else | Employee | Ask Mav "How many points does Kavin have?"; type `/employees` in the address bar | Mav answers about their own points only; the address redirects to their portal |
-| 17 | Manager asks the assistant | Manager | "What's waiting for my approval?" | List of requests waiting for them, with a link to Approvals |
+| 16 | Employee tries to see someone else | Employee | Type `/employees` in the address bar | Redirected to their own portal |
+| 17 | Goodies at a 200-person event | Executive, employees | Open the goodies desk for approved T-shirts; people scan and claim; hand over each | Each person once; resigned IDs refused; T-shirts counted against the event's approval; everyone marked present |
+| 17a | Weekly Fusion report | Executive | Upload this week's Fusion Connect report (about 35,000 rows) | Finishes in under a minute; joiners added; resigned marked inactive; reminder date moves a week on |
+| 17b | Someone resigned with a store order open | Executive | After the Fusion upload marks them resigned, open Store orders | Row flagged "no longer active"; accept and hand-over are refused |
 | 18 | New joiner signs in with SSO | (IT) | Sign in with Microsoft as someone with no app role, with `SSO_DEFAULT_ROLE=EMPLOYEE` | Employee portal opens, linked to their employee record |
 | 19 | Executive leaves the company | Administrator | Deactivate the user | They can't sign in; their history stays |
 | 20 | Audit question: who gave out the smart watches? | Manager | Reports → Distributed stock, filter the item; open the request | Recipients, dates, maker and approver with remarks |
@@ -123,7 +127,8 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | Return more than is left from an event | Refused, with the number left |
 | Demo account password change on the public demo | Refused, so the shared demo keeps working |
 | Database unreachable | `/api/health` returns 503 with a clear code; pages show a friendly error |
-| Assistant asked about something outside the app | Politely declines |
+| Same person scans the QR twice | Second claim refused: one per person per event |
+| Name typed doesn't match HR records | Claim still shows, flagged for the executive to check the ID card |
 
 ## 6. Non-functional checks
 
@@ -131,7 +136,7 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | --- | --- | --- |
 | Speed | System status round trip; page load on a laptop over office Wi-Fi | Under 10 ms in the same region; pages under 1 second |
 | Security | All changes are server actions that check the role; session cookie is HttpOnly, SameSite=Lax, Secure in production; passwords hashed with bcrypt; login throttled after 5 failures; SSO uses PKCE, state and nonce | As listed |
-| Accessibility | Keyboard-only use (Tab, Enter, Esc, Ctrl+K); visible focus ring; labels on every field; reduced-motion respected (3D mascot stops moving) | Usable without a mouse |
+| Accessibility | Keyboard-only use (Tab, Enter, Esc, Ctrl+K); visible focus ring; labels on every field; reduced-motion respected | Usable without a mouse |
 | Browsers | Latest Chrome, Edge, Safari, Firefox; phone width 390 px | Layout intact, no horizontal scroll |
 | Data integrity | Ledger and points history are insert-only; every change in the audit log with before and after | Nothing editable after the fact |
 
@@ -145,7 +150,7 @@ Run these on the demo or UAT site with the demo roles. Tick each one.
 | Events and attendance | | | | |
 | Points and rewards | | | | |
 | Employee portal | | | | |
-| Assistant | | | | |
+| Fusion report and QR desk | | | | |
 | Reports | | | | |
 | Administration | | | | |
 | SSO | | | | |

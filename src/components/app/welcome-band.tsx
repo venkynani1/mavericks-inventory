@@ -1,23 +1,15 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
-import { XIcon } from "lucide-react"
+import { GiftIcon, XIcon } from "lucide-react"
 
-const Mav3D = dynamic(() => import("./mav-3d"), { ssr: false, loading: () => null })
-
-/** A friendly 3D hello on the home page. Dismissable; remembered for the day in this browser. */
+/** A friendly hello on the home page. Dismissable; remembered for the day in this browser. */
 export function WelcomeBand({ name, line, children }: { name: string; line: string; children?: React.ReactNode }) {
   const key = `mav-hello-${new Date().toISOString().slice(0, 10)}`
   const [hidden, setHidden] = useState(false)
-  const [gl, setGl] = useState(false)
   useEffect(() => {
     try {
       setHidden(localStorage.getItem(key) === "1")
-    } catch {}
-    try {
-      const c = document.createElement("canvas")
-      setGl(!!(c.getContext("webgl2") || c.getContext("webgl")))
     } catch {}
   }, [key])
   if (hidden) return null
@@ -38,7 +30,7 @@ export function WelcomeBand({ name, line, children }: { name: string; line: stri
         <XIcon className="size-4" />
       </button>
       <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center md:px-7">
-        <div className="relative hidden size-28 shrink-0 sm:block">{gl && <Mav3D className="absolute inset-0" />}</div>
+        <span className="hidden size-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-[#f1b73b] sm:grid"><GiftIcon className="size-7" /></span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="font-heading text-2xl font-semibold">Hi {name.split(" ")[0]}!</p>
           <p className="text-sm text-white/75">{line}</p>

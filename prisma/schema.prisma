@@ -142,33 +142,35 @@ model StockItem {
   awards            EventAward[]
   catalogItems      RewardCatalogItem[]
   redemptionLines   RedemptionLine[]
+  claims            EventClaim[]
 
   @@index([status])
   @@index([product])
 }
 
 model Request {
-  id            String        @id @default(cuid())
-  number        String        @unique // MI-DST-2026-000123
+  id            String             @id @default(cuid())
+  number        String             @unique // MI-DST-2026-000123
   type          RequestType
-  status        RequestStatus @default(DRAFT)
+  status        RequestStatus      @default(DRAFT)
   title         String
   purpose       String?
   remarks       String?
-  currentLevel  Int           @default(0) // levels already approved
-  requiredLevel Int           @default(1) // snapshot of the configured levels at submission
+  currentLevel  Int                @default(0) // levels already approved
+  requiredLevel Int                @default(1) // snapshot of the configured levels at submission
   createdById   String
-  createdBy     User          @relation("RequestCreator", fields: [createdById], references: [id])
+  createdBy     User               @relation("RequestCreator", fields: [createdById], references: [id])
   submittedAt   DateTime?
   decidedAt     DateTime?
-  totalQty      Int           @default(0)
-  lineCount     Int           @default(0)
+  totalQty      Int                @default(0)
+  lineCount     Int                @default(0)
   uploadBatchId String?
   /// Set when the request is the goodies for an event (approved before the event) or goodies returned after it.
   eventId       String?
-  event         Event?        @relation(fields: [eventId], references: [id])
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  event         Event?             @relation(fields: [eventId], references: [id])
+  voucherLines  EventVoucherLine[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   masterItems       StockItem[]        @relation("MasterItems")
   receiptLines      ReceiptLine[]
@@ -325,22 +327,27 @@ model Counter {
 // ---------------------------------------------------------------------------
 
 model Employee {
-  id             String   @id @default(cuid())
-  empId          String   @unique
-  name           String
-  email          String?  @unique
-  department     String?
-  designation    String?
-  location       String?
-  active         Boolean  @default(true)
+  id              String    @id @default(cuid())
+  empId           String    @unique
+  name            String
+  email           String?   @unique
+  department      String?
+  designation     String?
+  location        String?
+  active          Boolean   @default(true)
+  /// From the weekly Fusion report: ACTIVE or RESIGNED, last working date, grade, and when it was last seen.
+  fusionStatus    String?
+  lastWorkingDate DateTime?
+  grade           String?
+  fusionSeenAt    DateTime?
   /// Current points in this cycle (0..cap). Kept in step with PointsTransaction inside transactions.
-  points         Int      @default(0)
+  points          Int       @default(0)
   /// All points ever credited, across resets.
-  lifetimePoints Int      @default(0)
+  lifetimePoints  Int       @default(0)
   /// Increases on each reset, so milestones can be earned again in a new cycle.
-  cycle          Int      @default(1)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  cycle           Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user             User?
   attendance       Attendance[]
@@ -348,6 +355,7 @@ model Employee {
   rewards          RewardEarned[]
   awards           EventAward[]
   redemptionOrders RedemptionOrder[]
+  claims           EventClaim[]
 
   @@index([points])
   @@index([name])
@@ -383,25 +391,31 @@ enum EventStatus {
 }
 
 model Event {
-  id           String              @id @default(cuid())
-  code         String              @unique // EV-2026-0012
-  name         String
-  eventTypeId  String
-  eventType    EventType           @relation(fields: [eventTypeId], references: [id])
+  id               String              @id @default(cuid())
+  code             String              @unique // EV-2026-0012
+  name             String
+  eventTypeId      String
+  eventType        EventType           @relation(fields: [eventTypeId], references: [id])
   /// Optional per-event override of the type's points (e.g. a flagship hackathon).
-  points       Int?
-  date         DateTime
-  location     String?
-  organizer    String?
-  description  String?
-  status       EventStatus         @default(PLANNED)
-  createdById  String
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  attendance   Attendance[]
-  transactions PointsTransaction[]
-  awards       EventAward[]
-  requests     Request[]
+  points           Int?
+  date             DateTime
+  location         String?
+  organizer        String?
+  description      String?
+  status           EventStatus         @default(PLANNED)
+  createdById      String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  attendance       Attendance[]
+  transactions     PointsTransaction[]
+  awards           EventAward[]
+  requests         Request[]
+  claims           EventClaim[]
+  /// Goodie collection desk: the QR links to /claim/<claimToken> while claimOpen is true.
+  claimToken       String?             @unique
+  claimOpen        Boolean             @default(false)
+  claimStockItemId String?
+  claimQty         Int                 @default(1)
 
   @@index([date])
 }
@@ -610,4 +624,66 @@ model RedemptionLine {
 
   @@index([orderId])
   @@index([stockItemId])
+}
+
+/// One weekly upload of the Fusion (HR) report. Only employees ACTIVE in it can earn points or get goodies.
+model FusionImport {
+  id           String    @id @default(cuid())
+  fileName     String
+  rows         Int       @default(0)
+  active       Int       @default(0)
+  resigned     Int       @default(0)
+  added        Int       @default(0)
+  updated      Int       @default(0)
+  deactivated  Int       @default(0)
+  reactivated  Int       @default(0)
+  skipped      Int       @default(0)
+  status       String    @default("RUNNING") // RUNNING, DONE
+  uploadedById String
+  createdAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  @@index([createdAt])
+}
+
+/// Amazon (or other) vouchers asked for an event before it happens: how many of what value. Names come later.
+model EventVoucherLine {
+  id           String  @id @default(cuid())
+  requestId    String
+  request      Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  provider     String  @default("Amazon")
+  denomination Int // rupees per voucher
+  quantity     Int
+
+  @@index([requestId])
+}
+
+enum ClaimStatus {
+  PENDING // employee scanned and entered their details; waiting at the desk
+  HANDED // the executive handed the goodie over
+  REJECTED // the executive turned it down (wrong person, already received…)
+}
+
+/// A goodie collected at an event by scanning the desk QR and entering name and employee ID.
+model EventClaim {
+  id           String      @id @default(cuid())
+  eventId      String
+  event        Event       @relation(fields: [eventId], references: [id])
+  employeeId   String
+  employee     Employee    @relation(fields: [employeeId], references: [id])
+  empIdEntered String
+  nameEntered  String
+  nameMatches  Boolean     @default(true)
+  stockItemId  String
+  stockItem    StockItem   @relation(fields: [stockItemId], references: [id])
+  quantity     Int         @default(1)
+  status       ClaimStatus @default(PENDING)
+  decidedById  String?
+  decidedAt    DateTime?
+  rejectReason String?
+  createdAt    DateTime    @default(now())
+
+  @@unique([eventId, employeeId])
+  @@index([eventId, status])
+  @@index([employeeId])
 }

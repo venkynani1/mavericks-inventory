@@ -158,11 +158,6 @@ export function StockItemForm({
             <FieldDescription>{quantityLocked ? "Approved items change quantity only through stock inward or distribution requests." : "Added to stock after the request is approved."}</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel htmlFor="reorderLevel">Reorder level</FieldLabel>
-            <Input id="reorderLevel" type="number" inputMode="numeric" min={0} step={1} value={String(v.reorderLevel ?? 0)} onChange={(e) => set("reorderLevel", e.target.value as unknown as number)} className="num" />
-            <FieldDescription>The item shows as low stock at or below this number.</FieldDescription>
-          </Field>
-          <Field>
             <FieldLabel htmlFor="location">Location</FieldLabel>
             <Select value={v.location || "__none"} onValueChange={(x) => set("location", x === "__none" ? "" : x)}>
               <SelectTrigger id="location" className="w-full">

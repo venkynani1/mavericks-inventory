@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeftIcon, BanIcon, CalendarIcon, GiftIcon, MapPinIcon, TrophyIcon, UserIcon } from "lucide-react"
+import { ArrowLeftIcon, BanIcon, CalendarIcon, GiftIcon, MapPinIcon, QrCodeIcon, TrophyIcon, UserIcon } from "lucide-react"
 import { awardPositions, prizeText } from "@/lib/server/awards"
 import { AwardDialog, CancelAward, SheetUploadDialog } from "@/components/app/prize-forms"
 import { prisma } from "@/lib/db"
@@ -18,7 +18,7 @@ import { AwardStatusBadge, CategoryBadge, EventStatusBadge, POSITION_TONE } from
 import { AttendeesAdder, EventDialog, RemoveAttendee } from "@/components/app/rewards-forms"
 import { EventGoodiesDialog, ReturnGoodiesDialog } from "@/components/app/store-forms"
 import { StatusBadge } from "@/components/app/status-badge"
-import { eventAllocation, eventPassed } from "@/lib/server/event-goodies"
+import { eventAllocation, eventPassed, eventVouchers } from "@/lib/server/event-goodies"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const e = await prisma.event.findUnique({ where: { id: (await params).id }, select: { name: true } })
@@ -43,8 +43,9 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
     prisma.stockItem.findMany({ where: { status: "ACTIVE" }, select: { id: true, name: true, availableQty: true }, orderBy: { name: "asc" } }),
   ])
   if (!event) notFound()
-  const [alloc, goodieRequests] = await Promise.all([
+  const [alloc, vouchers, goodieRequests] = await Promise.all([
     eventAllocation(prisma, event.id),
+    eventVouchers(prisma, event.id),
     prisma.request.findMany({ where: { eventId: event.id, status: { not: "CANCELLED" } }, orderBy: { createdAt: "asc" }, select: { id: true, number: true, type: true, status: true, currentLevel: true, requiredLevel: true, totalQty: true, createdAt: true } }),
   ])
   const passed = eventPassed(event.date)
@@ -120,13 +121,18 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                 canRequest &&
                 event.status !== "CANCELLED" && (
                   <>
+                    {alloc.some((a) => a.approved > 0) && can(user.role, "rewards:operate") && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/events/${event.id}/desk`}><QrCodeIcon data-icon="inline-start" />Goodies desk (QR){event.claimOpen ? ": open" : ""}</Link>
+                      </Button>
+                    )}
                     {alloc.some((a) => a.remaining > 0) && <ReturnGoodiesDialog eventId={event.id} rows={alloc} />}
                     {!passed && <EventGoodiesDialog eventId={event.id} eventName={event.name} items={items} />}
                   </>
                 )
               }
             />
-            {alloc.length ? (
+            {alloc.length || vouchers.length ? (
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -134,6 +140,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                     <TableHead className="text-right">Approved</TableHead>
                     <TableHead className="hidden text-right sm:table-cell">Waiting</TableHead>
                     <TableHead className="hidden text-right sm:table-cell">Prizes</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">Collected (QR)</TableHead>
                     <TableHead className="hidden text-right sm:table-cell">Returned</TableHead>
                     <TableHead className="pr-5 text-right">Left</TableHead>
                   </TableRow>
@@ -145,6 +152,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
                       <TableCell className="num text-right font-medium">{fmtNum(a.approved)}</TableCell>
                       <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.waiting ? fmtNum(a.waiting) : "—"}</TableCell>
                       <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.prizes ? fmtNum(a.prizes) : "—"}</TableCell>
+                      <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.collected ? fmtNum(a.collected) : "—"}{a.claimsWaiting ? ` (+${a.claimsWaiting})` : ""}</TableCell>
                       <TableCell className="num hidden text-right text-muted-foreground sm:table-cell">{a.returned ? fmtNum(a.returned) : "—"}</TableCell>
                       <TableCell className="num pr-5 text-right font-semibold">{fmtNum(a.remaining)}</TableCell>
                     </TableRow>
@@ -153,6 +161,21 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </Table>
             ) : (
               <p className="px-5 py-6 text-center text-sm text-muted-foreground">{passed ? "No goodies were approved for this event." : "No goodies requested yet."}</p>
+            )}
+            {vouchers.length > 0 && (
+              <div className="border-t">
+                <p className="px-5 pt-3 text-sm font-medium">Amazon vouchers</p>
+                <ul className="divide-y text-sm">
+                  {vouchers.map((v) => (
+                    <li key={`${v.provider}${v.denomination}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2">
+                      <span className="flex-1">{v.provider}, ₹{fmtNum(v.denomination)} each</span>
+                      <span className="num text-muted-foreground">{fmtNum(v.approved)} approved{v.waiting ? `, ${fmtNum(v.waiting)} waiting` : ""}</span>
+                      <span className="num text-muted-foreground">{fmtNum(v.given)} given to winners</span>
+                      <span className="num font-semibold">{fmtNum(v.left)} left</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             {goodieRequests.length > 0 && (
               <ul className="divide-y border-t text-sm">

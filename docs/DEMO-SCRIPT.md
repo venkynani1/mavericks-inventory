@@ -2,7 +2,7 @@
 
 A 25-minute walkthrough of every role, in the order the work actually flows: stock comes in, goodies go out with approval, goodies for an event are approved before it, employees earn points at events, and they spend those points in the points store.
 
-**Contents:** [Before you start](#before-you-start) · [The five roles](#the-five-roles) · [How the processes connect](#how-the-processes-connect) · [Part 1, Executive](#part-1-executive-stock-and-a-distribution) · [Part 2, approvals](#part-2-manager-and-management-authority-approvals) · [Part 3, engagement](#part-3-executive-event-goodies-attendance-and-prizes) · [Part 4, Employee](#part-4-employee-the-portal) · [Part 5, Administrator](#part-5-administrator-rules-users-audit-system-status) · [Ask Mav](#ask-mav-questions-to-try-for-each-role) · [Audience questions](#questions-the-audience-may-ask)
+**Contents:** [Before you start](#before-you-start) · [The five roles](#the-five-roles) · [How the processes connect](#how-the-processes-connect) · [Part 1, Executive](#part-1-executive-stock-and-a-distribution) · [Part 2, approvals](#part-2-manager-and-management-authority-approvals) · [Part 3, engagement](#part-3-executive-event-goodies-attendance-and-prizes) · [Part 4, Employee](#part-4-employee-the-portal) · [Part 5, Administrator](#part-5-administrator-rules-users-audit-system-status) · [Audience questions](#questions-the-audience-may-ask)
 
 ## Before you start
 
@@ -55,8 +55,8 @@ The top row is every stock change: the executive makes it, a manager (and for la
 
 Point to make: an executive records everything, but nothing leaves the shelf until a manager says yes.
 
-1. Sign in as **Executive**. Mav waves hello. **Say:** "The top bar is the same for everyone: search, Ask Mav, the bell. The left menu is grouped by the kind of work."
-2. On **Home**, point at **Needs your attention** (drafts, low stock, rewards due) and the tiles: **On hand**, **Reserved** (in requests waiting for approval) and **Free to promise** (what can still be given out).
+1. Sign in as **Executive**. **Say:** "The top bar is the same for everyone: search and the bell. The left menu is grouped by the kind of work, and each role sees only what it needs."
+2. On **Home**, point at **Needs your attention** (the Fusion report due in 2 days, store orders, events without goodies) and the tiles: **Procured**, **In stock** and **Distributed**. Open **Stock by product** and expand **Back Bag**: "Black and blue bags are added together; the colours are inside." **Say:** "Low stock, anything under 50, is on the stock list's Low tab, not cluttering Home."
 3. **Items** (menu, Inventory). Show the **Low** tab, then the columns **Reserved**, **Free to promise** and **Cover** (days the stock lasts at the last 90 days' pace). **Say:** "This is how large stores teams track stock: not just what's on the shelf, but what's already promised."
 4. Open **Bluetooth Speaker**. Note the **Available** number. Show the movement ledger and recipients.
 5. **Distributions → Record a distribution.** Title "Speaker giveaway", item *Bluetooth Speaker*, quantity 2, a recipient name and employee ID. Select **Submit for approval**.
@@ -91,6 +91,16 @@ How points work: each event type is worth a fixed number of points that the admi
 4. As **Manager**, open **Approvals**: the row says **For an event on (date): approve before it**. Approve it. Back as Executive, the speaker's **Available** dropped by 1 and badges by 50: the stock moved at approval, before the event.
 5. Point out: requests for an event that has already happened are refused, and a request still waiting when the date passes is flagged **Event passed**.
 
+**Vouchers before the event:** in the same **Request goodies** dialog, **Add vouchers**: value ₹5,000, how many 2. **Say:** "We don't know the winners yet, so the manager approves the number and value now; names are added after the event."
+
+**QR goodies desk (at the event):**
+
+- On **Hackathon: Agentic AI** (or any event with approved goodies), select **Goodies desk (QR)**, choose *Plastic Pin Badges* and **Open desk and show QR**.
+- On a phone, scan it: enter `2000149999` and "Priyanka". **Say:** "No sign-in and no Excel: the ID is checked against the Fusion report, one per person." The phone says **Show this screen at the desk**.
+- On the laptop, Priyanka appears under **Waiting at the desk**. Select **Hand over**. The phone changes to **Enjoy your goodie!**, she's marked present, and it shows in her portal under Goodies received.
+
+**Weekly Fusion report:** open **Employees and points**. The banner shows the last upload and that the next is due in 2 days (the bell says so too). **Upload Fusion report** takes the Fusion Connect export as is. **Say:** "Only active employees earn points or get goodies; resigned people are marked from the DHR Status column." Point at the **Fusion status** and **Goodies received** columns, and **Export** (Excel has a Goodies received column).
+
 **Attendance and points:**
 
 6. **New event:** name "Cloud workshop: Terraform basics", type **Workshop (400 pts)**, today's date. Select **Create event**.
@@ -116,11 +126,11 @@ How points work: each event type is worth a fixed number of points that the admi
 
 Point to make: every employee can see their own points, spend them on goodies when they want, and see nothing else.
 
-1. Sign in as **Employee** (Priyanka Sharma). She lands on **My dashboard**. Mav tells her what she can get now, or how many points she needs for the next goodie.
+1. Sign in as **Employee** (Priyanka Sharma). She lands on **My dashboard**. The greeting tells her what she can get now, or how many points she needs for the next goodie.
 2. Point at **Your points**, **lifetime points**, **Events attended**, **Goodies received**, **Orders in progress** and **Your rank**. **What your points can get** shows each store goodie with a bar.
 3. Open **Points store**. Goodies she can afford say **You can get this**; the others show how many points are still needed. **Say:** "At 2,000 points she can take a mug now, or keep saving for the 4,000 backpack. Her choice."
 4. Add the **Backpack** (4,000) to the cart. The cart shows **Your points**, **This order** and **Left after the order**. **Say:** "It works like a shop: if she has 2,400 and spends 2,000, she keeps 400."
-5. Select **Place order**. **My orders** shows it as **Order placed**; her balance dropped straight away.
+5. Point at the note: processing takes up to **20 business days**, and if she resigns before it's handed over it can't be delivered. Tick **I understand**, then **Place order**. **My orders** shows it as **Order placed**; her balance dropped straight away.
 6. Now do steps 15 and 16 of Part 3 as the Executive. Back as Priyanka, **My orders** shows **Collect your goodies** with the place and time, and the bell says it's ready.
 7. **Goodies received** and **Points history**: every goodie and every points change, including the store order.
 8. **Security check:** type `/stock` or `/redemptions` at the end of the address. She is sent straight back to her dashboard.
@@ -139,26 +149,6 @@ Point to make: the business rules are settings the admin controls, not code, and
 8. **Users and roles:** add a user; they get a one-time password and must change it on first sign-in. With company single sign-on, roles come from Microsoft Entra ID instead.
 9. **Audit log:** every sign-in, change and decision with before and after values. Show the points change you just made.
 10. **System status:** where the app and database run and how fast they talk. **Say:** "If anyone says it's slow, this page says why and how to fix it."
-
-## Ask Mav: questions to try for each role
-
-Ask Mav (top bar) answers from live data and only within the role signed in. Show the same question from two roles to prove the limit.
-
-| Role | Try asking | What it shows |
-| --- | --- | --- |
-| Executive | "Which items are running low?" | Items at or below reorder level, with a link to plan stock inward |
-| Executive | "How many black t-shirts do we have?" | On hand, reserved and free to promise per size |
-| Executive | "How do I record event attendance?" | Step-by-step help for that role |
-| Executive | "Which event prizes are still to hand out?" | Winners waiting for vouchers or goodies |
-| Executive | "Any store orders to accept?" | New points-store orders with the employee and goodies |
-| Manager | "What's waiting for my approval?" | Requests waiting, their age, overdue flag |
-| Manager | "Distributions in the last 30 days" | Units handed out, top items and purposes |
-| Administrator | "How many points does 2000149999 have?" | That employee's points and what they can get from the store |
-| Employee | "How many points do I have?" | Her own points and what she can get from the store |
-| Employee | "What can I get with my points?" | Store goodies she can afford and how many points the next one needs |
-| Employee | "Where do I collect my order?" | Her open orders with the pickup place and time |
-| Employee | "How many points does Kavin Raj have?" | Refuses: she can only see her own |
-| Anyone | "What's the weather?" | Declines: outside the app |
 
 ## Questions the audience may ask
 

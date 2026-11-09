@@ -44,7 +44,8 @@ export async function recomputeTotals(tx: Tx, requestId: string) {
   if (req.type === "DISTRIBUTION") {
     const agg = await tx.distributionLine.aggregate({ where: { requestId }, _sum: { quantity: true }, _count: true })
     totalQty = agg._sum.quantity ?? 0
-    lineCount = agg._count
+    // Vouchers asked for an event are lines too (they don't move stock).
+    lineCount = agg._count + (await tx.eventVoucherLine.count({ where: { requestId } }))
   } else if (req.type === "RECEIPT") {
     const agg = await tx.receiptLine.aggregate({ where: { requestId }, _sum: { quantity: true }, _count: true })
     totalQty = agg._sum.quantity ?? 0

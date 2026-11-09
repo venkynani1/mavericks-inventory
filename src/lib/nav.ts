@@ -5,7 +5,7 @@ import { can, type Role } from "@/lib/roles"
 export type NavIcon =
   | "home" | "items" | "movements" | "count" | "inward" | "distribution" | "requests" | "approvals"
   | "events" | "employees" | "leaderboard" | "rewards" | "reports" | "users" | "rules" | "rewardRules"
-  | "masters" | "audit" | "system" | "me" | "assistant" | "prizes" | "store" | "orders"
+  | "masters" | "audit" | "system" | "me" | "prizes" | "store" | "orders"
 
 export type NavItem = { href: string; label: string; icon: NavIcon; badge?: "approvals" | "mine" | "rewardsDue" | "prizesDue" | "ordersDue"; exact?: boolean }
 export type NavGroup = { label: string; items: NavItem[] }

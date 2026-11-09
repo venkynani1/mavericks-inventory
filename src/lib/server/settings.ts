@@ -18,6 +18,8 @@ export type WorkflowSettings = {
   leaderboardForEmployees: boolean
   /** "store": employees spend points on goodies from the points store; "milestones": a reward is due at each milestone */
   rewardMode: "store" | "milestones"
+  /** An item is "low stock" when fewer than this many are available (default 50). */
+  lowStockBelow: number
 }
 
 export const DEFAULT_SETTINGS: WorkflowSettings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: WorkflowSettings = {
   rewards: DEFAULT_RULES,
   leaderboardForEmployees: true,
   rewardMode: "store",
+  lowStockBelow: 50,
 }
 
 export const SETTINGS_TAG = "settings"
@@ -45,6 +48,7 @@ async function readSettings(): Promise<WorkflowSettings> {
     rewards: { step, cap: Math.max(step, cap), milestones: map.rewardMode === "milestones" },
     leaderboardForEmployees: map.leaderboardForEmployees ? map.leaderboardForEmployees === "true" : true,
     rewardMode: map.rewardMode === "milestones" ? "milestones" : "store",
+    lowStockBelow: Number(map.lowStockBelow) > 0 ? Number(map.lowStockBelow) : DEFAULT_SETTINGS.lowStockBelow,
   }
 }
 

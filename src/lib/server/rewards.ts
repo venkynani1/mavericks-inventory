@@ -1,3 +1,4 @@
+import { fusionIsMaster } from "./fusion"
 import "server-only"
 import type { PointsType, Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
@@ -58,14 +59,14 @@ export async function nextEventCode(tx: Tx) {
 }
 
 /** Finds employees by employee ID, creating new ones when a name is supplied. */
-export async function upsertEmployees(tx: Tx, people: { empId: string; name?: string; email?: string | null; department?: string | null; location?: string | null }[]) {
+export async function upsertEmployees(tx: Tx, people: { empId: string; name?: string; email?: string | null; department?: string | null; location?: string | null }[], opts: { create?: boolean } = {}) {
   const ids = [...new Set(people.map((p) => p.empId.trim()))]
   const existing = await tx.employee.findMany({ where: { empId: { in: ids } } })
   const byEmp = new Map(existing.map((e) => [e.empId, e]))
   const created: string[] = []
   for (const p of people) {
     const empId = p.empId.trim()
-    if (byEmp.has(empId) || !p.name?.trim()) continue
+    if (byEmp.has(empId) || !p.name?.trim() || opts.create === false) continue
     const email = p.email?.trim().toLowerCase() || null
     const clash = email ? await tx.employee.findUnique({ where: { email } }) : null
     const e = await tx.employee.create({ data: { empId, name: p.name.trim(), email: clash ? null : email, department: p.department || null, location: p.location || null } })
@@ -87,18 +88,24 @@ export async function recordAttendance(eventId: string, people: { empId: string;
       if (!event) throw new AppError("Event not found.", 404)
       if (event.status === "CANCELLED") throw new AppError("This event is cancelled, so attendance can't be recorded.", 409)
       const pts = pointsForEvent(event, event.eventType)
-      const { byEmp, created } = await upsertEmployees(tx, people)
+      // Once the Fusion report is in use, it's the list of employees: unknown IDs aren't created here.
+      const master = await fusionIsMaster(tx)
+      const { byEmp, created } = await upsertEmployees(tx, people, { create: !master })
       const unknown = people.filter((p) => !byEmp.has(p.empId.trim())).map((p) => p.empId)
       const already = new Set((await tx.attendance.findMany({ where: { eventId, employeeId: { in: [...byEmp.values()].map((e) => e.id) } }, select: { employeeId: true } })).map((a) => a.employeeId))
       let added = 0
       let capped = 0
+      const inactive: string[] = []
       const milestones: { empId: string; name: string; thresholds: number[] }[] = []
       const seen = new Set<string>()
       for (const p of people) {
         const emp = byEmp.get(p.empId.trim())
         if (!emp || already.has(emp.id) || seen.has(emp.id)) continue
         seen.add(emp.id)
-        if (!emp.active) continue
+        if (!emp.active) {
+          inactive.push(emp.empId)
+          continue
+        }
         await tx.attendance.create({ data: { eventId, employeeId: emp.id, pointsAwarded: pts, createdById: user.id } })
         const r = await applyPoints(tx, { employeeId: emp.id, delta: pts, type: "EVENT", actorId: user.id, eventId, reason: `${event.code} ${event.name}` }, settings.rewards)
         added++
@@ -107,7 +114,7 @@ export async function recordAttendance(eventId: string, people: { empId: string;
       }
       if (event.status === "PLANNED" && added) await tx.event.update({ where: { id: eventId }, data: { status: "COMPLETED" } })
       await audit(tx, { actorId: user.id, action: "EVENT.ATTENDANCE", entity: "Event", entityId: eventId, summary: `Marked ${added} attendee(s) at ${event.code} ${event.name} (+${pts} points each)${created.length ? `; ${created.length} new employee record(s)` : ""}` })
-      return { added, alreadyPresent: already.size, unknown, created: created.length, capped, milestones, points: pts }
+      return { added, alreadyPresent: already.size, unknown, created: created.length, capped, milestones, points: pts, inactive, fusion: master }
     },
     { timeout: 120_000, maxWait: 10_000 },
   )

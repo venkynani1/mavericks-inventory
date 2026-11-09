@@ -34,12 +34,15 @@ export type AllocationRow = {
   waiting: number
   returned: number
   prizes: number
+  /** Handed out at the QR desk, and claims waiting at the desk */
+  collected: number
+  claimsWaiting: number
   remaining: number
 }
 
 /** What was approved for an event, what's waiting, what came back, what went out as prizes and what's left. */
 export async function eventAllocation(db: Tx, eventId: string): Promise<AllocationRow[]> {
-  const [lines, receipts, prizes] = await Promise.all([
+  const [lines, receipts, prizes, claims] = await Promise.all([
     db.distributionLine.findMany({
       where: { request: { eventId, type: "DISTRIBUTION", status: { in: ["APPROVED", "SUBMITTED"] } } },
       select: { stockItemId: true, quantity: true, request: { select: { status: true } }, stockItem: { select: { code: true, name: true } } },
@@ -52,11 +55,12 @@ export async function eventAllocation(db: Tx, eventId: string): Promise<Allocati
       where: { eventId, fromAllocation: true, status: "ISSUED" },
       select: { stockItemId: true, quantity: true, stockItem: { select: { code: true, name: true } } },
     }),
+    db.eventClaim.findMany({ where: { eventId, status: { in: ["HANDED", "PENDING"] } }, select: { stockItemId: true, quantity: true, status: true, stockItem: { select: { code: true, name: true } } } }),
   ])
   const map = new Map<string, AllocationRow>()
   const row = (id: string, it: { code: string; name: string } | null) => {
     let r = map.get(id)
-    if (!r) map.set(id, (r = { stockItemId: id, code: it?.code ?? "", name: it?.name ?? "", approved: 0, waiting: 0, returned: 0, prizes: 0, remaining: 0 }))
+    if (!r) map.set(id, (r = { stockItemId: id, code: it?.code ?? "", name: it?.name ?? "", approved: 0, waiting: 0, returned: 0, prizes: 0, collected: 0, claimsWaiting: 0, remaining: 0 }))
     return r
   }
   for (const l of lines) {
@@ -67,14 +71,63 @@ export async function eventAllocation(db: Tx, eventId: string): Promise<Allocati
   // Returns count against what's left as soon as they're submitted, so the same goodies can't be returned twice.
   for (const l of receipts) row(l.stockItemId, l.stockItem).returned += l.quantity
   for (const p of prizes) if (p.stockItemId) row(p.stockItemId, p.stockItem).prizes += p.quantity
-  for (const r of map.values()) r.remaining = Math.max(0, r.approved - r.returned - r.prizes)
+  for (const c of claims) {
+    const r = row(c.stockItemId, c.stockItem)
+    if (c.status === "HANDED") r.collected += c.quantity
+    else r.claimsWaiting += c.quantity
+  }
+  // Claims waiting at the desk hold their goodies, so the same goodie can't be promised twice.
+  for (const r of map.values()) r.remaining = Math.max(0, r.approved - r.returned - r.prizes - r.collected - r.claimsWaiting)
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 type Line = { stockItemId: string; quantity: number }
+export type VoucherLine = { provider?: string; denomination: number; quantity: number }
 
-function cleanLines(lines: Line[]) {
-  if (!lines?.length) throw new AppError("Add at least one goodie.")
+function cleanVouchers(v: VoucherLine[] = []) {
+  const out = new Map<string, { provider: string; denomination: number; quantity: number }>()
+  for (const [i, x] of v.entries()) {
+    const d = Math.trunc(Number(x.denomination))
+    const q = Math.trunc(Number(x.quantity))
+    if (!d && !q) continue
+    if (!(d >= 1 && d <= 1_000_000)) throw new AppError(`Voucher line ${i + 1}: enter the value of each voucher in rupees.`)
+    if (!(q >= 1 && q <= 10_000)) throw new AppError(`Voucher line ${i + 1}: enter how many vouchers.`)
+    const provider = (x.provider?.trim() || "Amazon").slice(0, 40)
+    const key = `${provider}:${d}`
+    const prev = out.get(key)
+    out.set(key, { provider, denomination: d, quantity: (prev?.quantity ?? 0) + q })
+  }
+  return [...out.values()]
+}
+
+/** Vouchers approved for an event (by value) and how many have been given to winners. */
+export async function eventVouchers(db: Tx, eventId: string) {
+  const [lines, awards] = await Promise.all([
+    db.eventVoucherLine.findMany({ where: { request: { eventId, status: { in: ["APPROVED", "SUBMITTED"] } } }, select: { provider: true, denomination: true, quantity: true, request: { select: { status: true } } } }),
+    db.eventAward.findMany({ where: { eventId, kind: "VOUCHER", status: { not: "CANCELLED" } }, select: { voucherProvider: true, voucherAmount: true, quantity: true } }),
+  ])
+  const map = new Map<string, { provider: string; denomination: number; approved: number; waiting: number; given: number; left: number }>()
+  for (const l of lines) {
+    const k = `${l.provider.toLowerCase()}:${l.denomination}`
+    const r = map.get(k) ?? { provider: l.provider, denomination: l.denomination, approved: 0, waiting: 0, given: 0, left: 0 }
+    if (l.request.status === "APPROVED") r.approved += l.quantity
+    else r.waiting += l.quantity
+    map.set(k, r)
+  }
+  for (const a of awards) {
+    const k = `${(a.voucherProvider ?? "Amazon").toLowerCase()}:${Number(a.voucherAmount ?? 0)}`
+    const r = map.get(k)
+    if (r) r.given += a.quantity
+  }
+  for (const r of map.values()) r.left = Math.max(0, r.approved - r.given)
+  return [...map.values()].sort((a, b) => b.denomination - a.denomination)
+}
+
+function cleanLines(lines: Line[], allowEmpty = false) {
+  if (!lines?.length) {
+    if (allowEmpty) return []
+    throw new AppError("Add at least one goodie.")
+  }
   const merged = new Map<string, number>()
   for (const [i, l] of lines.entries()) {
     const q = Math.trunc(Number(l.quantity))
@@ -86,8 +139,9 @@ function cleanLines(lines: Line[]) {
 }
 
 /** Creates the goodies request for an upcoming event and (optionally) sends it for approval. */
-export async function requestEventGoodies(eventId: string, input: { lines: Line[]; note?: string; submit: boolean }, user: SessionUser) {
-  const lines = cleanLines(input.lines)
+export async function requestEventGoodies(eventId: string, input: { lines: Line[]; vouchers?: VoucherLine[]; note?: string; submit: boolean }, user: SessionUser) {
+  const vouchers = cleanVouchers(input.vouchers)
+  const lines = cleanLines((input.lines ?? []).filter((l) => l.stockItemId || Number(l.quantity)), vouchers.length > 0)
   const event = await prisma.event.findUnique({ where: { id: eventId }, include: { eventType: true } })
   if (!event) throw new AppError("Event not found.", 404)
   if (event.status === "CANCELLED") throw new AppError("This event is cancelled.", 409)
@@ -95,16 +149,18 @@ export async function requestEventGoodies(eventId: string, input: { lines: Line[
     throw new AppError("This event has already happened. Goodies need the manager's approval before the event; for goodies already handed out, record a normal distribution.", 409)
   const items = await prisma.stockItem.findMany({ where: { id: { in: lines.map((l) => l.stockItemId) }, status: "ACTIVE" }, select: { id: true } })
   if (items.length !== lines.length) throw new AppError("One of the chosen goodies isn't an active stock item any more. Refresh and choose again.")
+  const voucherText = vouchers.map((v) => `${v.quantity} x ${v.provider} ₹${v.denomination.toLocaleString("en-IN")}`).join(", ")
   const req = await prisma.$transaction(async (tx) => {
     const number = await nextRequestNumber(tx, "DISTRIBUTION")
     const r = await tx.request.create({
       data: {
         number, type: "DISTRIBUTION", eventId, createdById: user.id,
-        title: `Goodies for ${event.code} ${event.name}`.slice(0, 120),
+        title: `${lines.length ? "Goodies" : "Vouchers"}${lines.length && vouchers.length ? " and vouchers" : ""} for ${event.code} ${event.name}`.slice(0, 120),
         purpose: "Event goodies",
         remarks: input.note?.trim().slice(0, 500) || null,
       },
     })
+    if (vouchers.length) await tx.eventVoucherLine.createMany({ data: vouchers.map((v) => ({ requestId: r.id, ...v })) })
     await tx.distributionLine.createMany({
       data: lines.map((l) => ({
         requestId: r.id, stockItemId: l.stockItemId, quantity: l.quantity, distributedOn: event.date,
@@ -113,7 +169,7 @@ export async function requestEventGoodies(eventId: string, input: { lines: Line[
       })),
     })
     await recomputeTotals(tx, r.id)
-    await audit(tx, { actorId: user.id, action: "EVENT_GOODIES.CREATE", entity: "Event", entityId: eventId, summary: `Created ${number}: ${lines.reduce((s, l) => s + l.quantity, 0)} goodies for ${event.code} ${event.name}` })
+    await audit(tx, { actorId: user.id, action: "EVENT_GOODIES.CREATE", entity: "Event", entityId: eventId, summary: `Created ${number}: ${lines.reduce((s, l) => s + l.quantity, 0)} goodies${voucherText ? ` and vouchers (${voucherText})` : ""} for ${event.code} ${event.name}` })
     return r
   })
   if (input.submit) await submitRequest(req.id, user)

@@ -66,7 +66,6 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   audit: ScrollTextIcon,
   system: ActivityIcon,
   me: UserRoundIcon,
-  assistant: SparklesIcon,
   prizes: MedalIcon,
   store: ShoppingBagIcon,
   orders: PackageCheckIcon,

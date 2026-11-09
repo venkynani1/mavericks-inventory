@@ -103,6 +103,7 @@ export default async function RedemptionsPage({ searchParams }: { searchParams: 
                         {o.lines.map((l) => <li key={l.id}>{l.name}{l.quantity > 1 ? ` x${l.quantity}` : ""}</li>)}
                       </ul>
                       {o.note && <span className="block text-xs text-muted-foreground">“{o.note}”</span>}
+                      {!o.employee.active && <span className="mt-1 flex items-center gap-1 text-xs font-medium text-rejected"><TriangleAlertIcon className="size-3.5" />No longer active in Fusion: don&apos;t hand over</span>}
                       {short && <span className="mt-1 inline-flex items-center gap-1 text-xs text-rejected"><TriangleAlertIcon className="size-3.5" />Not enough in stock</span>}
                       {o.rejectReason && <span className="block text-xs text-rejected">{o.rejectReason}</span>}
                     </TableCell>

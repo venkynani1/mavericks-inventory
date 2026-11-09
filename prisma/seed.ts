@@ -364,6 +364,45 @@ async function seedStore() {
   return made.length
 }
 
+/**
+ * Fusion report, vouchers and the QR goodies desk (demo). Marks the demo employees as in the Fusion
+ * report (a handful resigned), records a Fusion upload five days ago (so the weekly reminder shows),
+ * adds Amazon vouchers to the hackathon's approved request and a few goodies collected at its desk.
+ * Runs on a fresh seed and once on an older demo database.
+ */
+async function seedFusionAndDesk() {
+  if ((await prisma.fusionImport.count()) > 0) return 0
+  const exec = await prisma.user.findUnique({ where: { email: "executive@mavericks.demo" } })
+  if (!exec) return 0
+  const now = Date.now()
+  await prisma.employee.updateMany({ where: { active: true }, data: { fusionStatus: "ACTIVE", fusionSeenAt: new Date(now - 5 * DAY) } })
+  const leavers = await prisma.employee.findMany({ where: { active: true, empId: { not: "2000149999" }, points: { lt: 1500 } }, orderBy: { empId: "desc" }, take: 6 })
+  for (const [i, e] of leavers.entries())
+    await prisma.employee.update({ where: { id: e.id }, data: { active: false, fusionStatus: "RESIGNED", lastWorkingDate: new Date(now - (10 + i * 7) * DAY) } })
+  const [active, resigned] = await Promise.all([prisma.employee.count({ where: { active: true } }), prisma.employee.count({ where: { active: false } })])
+  await prisma.fusionImport.create({
+    data: { fileName: "Fusion Connect Report (demo).xlsx", rows: active + resigned, active, resigned, updated: active + resigned, deactivated: leavers.length, status: "DONE", uploadedById: exec.id, createdAt: new Date(now - 5 * DAY), finishedAt: new Date(now - 5 * DAY) },
+  })
+
+  // Vouchers approved for the hackathon (its winner got a ₹5,000 Amazon voucher).
+  const hack = await prisma.event.findFirst({ where: { name: "Hackathon: Agentic AI" } })
+  const req = hack ? await prisma.request.findFirst({ where: { eventId: hack.id, type: "DISTRIBUTION", status: "APPROVED" } }) : null
+  if (hack && req) {
+    await prisma.eventVoucherLine.createMany({ data: [{ requestId: req.id, provider: "Amazon", denomination: 5000, quantity: 1 }, { requestId: req.id, provider: "Amazon", denomination: 2000, quantity: 2 }] })
+    await prisma.request.update({ where: { id: req.id }, data: { title: `Goodies and vouchers for ${hack.code} ${hack.name}`.slice(0, 120), lineCount: { increment: 2 } } })
+    // A few people collected a badge at the hackathon's QR desk.
+    const badge = await prisma.stockItem.findFirst({ where: { name: { contains: "Plastic Pin Badges" } } })
+    const people = await prisma.attendance.findMany({ where: { eventId: hack.id, employee: { active: true } }, include: { employee: true }, take: 8 })
+    if (badge)
+      for (const [i, a] of people.entries())
+        await prisma.eventClaim.create({
+          data: { eventId: hack.id, employeeId: a.employeeId, empIdEntered: a.employee.empId, nameEntered: a.employee.name, stockItemId: badge.id, quantity: 1, status: "HANDED", decidedById: exec.id, decidedAt: new Date(hack.date.getTime() + (2 + i) * 600_000), createdAt: new Date(hack.date.getTime() + (1 + i) * 600_000) },
+        })
+  }
+  console.log(`Added the demo Fusion upload (${active} active, ${resigned} resigned), event vouchers and QR desk collections.`)
+  return 1
+}
+
 async function main() {
   if (await prisma.user.count()) {
     // Older databases get any new standard lists (event types, prize positions) without touching existing values.
@@ -371,7 +410,8 @@ async function main() {
     const upgraded = await upgradeDemo()
     const prizes = await seedPrizes()
     const store = await seedStore()
-    if (!upgraded && !prizes && !store) console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
+    const fusion = await seedFusionAndDesk()
+    if (!upgraded && !prizes && !store && !fusion) console.log("Database already has data, so the seed was skipped. Run `npm run db:reset` to start fresh.")
     return
   }
   const password = process.env.SEED_PASSWORD || "Mavericks@2026"
@@ -614,6 +654,7 @@ async function main() {
 
   await seedPrizes()
   await seedStore()
+  await seedFusionAndDesk()
   await prisma.auditLog.create({ data: { actorId: U.ADMIN.id, action: "SYSTEM.SEED", entity: "System", summary: `Loaded ${rows.length} stock items and ${batches.length} approved distributions from the Sep 25 tracker` } })
   console.log(`Seeded ${rows.length} items, ${batches.length} historical distributions, ${await prisma.employee.count()} employees, ${evNo} events. Demo password: ${password}`)
 }

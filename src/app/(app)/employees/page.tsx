@@ -13,9 +13,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { PageHeader, Panel } from "@/components/app/page-header"
 import { SearchFilter, Segmented, SelectFilter } from "@/components/app/filters"
 import { Pager } from "@/components/app/pager"
-import { PointsProgress } from "@/components/app/rewards-display"
 import { EmployeeDialog } from "@/components/app/rewards-forms"
 import { SheetUploadDialog } from "@/components/app/prize-forms"
+import { FusionUpload } from "@/components/app/fusion-upload"
+import { fusionDue } from "@/lib/server/fusion"
+import { goodiesReceived } from "@/lib/server/employee-data"
+import { cn, fmtDate } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Employees and points" }
 const PAGE = 50
@@ -36,7 +39,11 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { empId: { contains: sp.q } }, { email: { contains: sp.q, mode: "insensitive" } }]
   const orderBy: Prisma.EmployeeOrderByWithRelationInput[] = sp.sort === "name" ? [{ name: "asc" }] : [{ points: "desc" }, { name: "asc" }]
 
-  const [emps, total, depts, counts] = await Promise.all([
+  const store = settings.rewardMode === "store"
+  const canUpload = can(user.role, "rewards:operate") || can(user.role, "admin:manage")
+  const [due, lastImport, emps, total, depts, counts] = await Promise.all([
+    fusionDue(),
+    prisma.fusionImport.findFirst({ where: { status: "DONE" }, orderBy: { createdAt: "desc" } }),
     prisma.employee.findMany({ where, orderBy, skip: (page - 1) * PAGE, take: PAGE, include: { _count: { select: { attendance: true, rewards: { where: { status: "DUE" } } } } } }),
     prisma.employee.count({ where }),
     prisma.employee.findMany({ where: { department: { not: null } }, distinct: ["department"], select: { department: true }, orderBy: { department: "asc" } }),
@@ -49,12 +56,14 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   ])
   const c = counts[0]
   const start = (page - 1) * PAGE
+  const received = await goodiesReceived(emps.map((e) => e.id))
+  const fusionTone = due.state === "overdue" || due.state === "never" ? "border-rejected/40 bg-rejected-soft/40" : due.state === "soon" ? "border-pending/40 bg-pending-soft/50" : "bg-card"
 
   return (
     <>
       <PageHeader
         title="Employees and points"
-        description={`Everyone who attends events or receives goodies. A goodie is earned every ${fmtNum(settings.rewards.step)} points, up to ${fmtNum(settings.rewards.cap)}.`}
+        description={store ? `Everyone in the weekly Fusion report. Only active employees can earn points (up to ${fmtNum(settings.rewards.cap)}), order goodies, win prizes or collect goodies.` : `Everyone who attends events or receives goodies. A goodie is earned every ${fmtNum(settings.rewards.step)} points, up to ${fmtNum(settings.rewards.cap)}.`}
         actions={
           <>
             <Button variant="outline" asChild>
@@ -65,6 +74,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             </Button>
             {(can(user.role, "rewards:operate") || can(user.role, "rewards:configure")) && (
               <>
+                {canUpload && <FusionUpload />}
                 <SheetUploadDialog kind="employees" />
                 <EmployeeDialog />
               </>
@@ -72,13 +82,24 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
           </>
         }
       />
+      <section aria-label="Fusion report" className={cn("mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-3 text-sm", fusionTone)}>
+        <span className="font-medium">Weekly Fusion report</span>
+        {lastImport ? (
+          <span className="text-muted-foreground">
+            Last uploaded {fmtDate(lastImport.createdAt)}: {fmtNum(lastImport.active)} active, {fmtNum(lastImport.resigned)} resigned.{" "}
+            {due.state === "overdue" ? <span className="font-medium text-rejected">Overdue by {Math.abs(due.daysLeft ?? 0)} day{Math.abs(due.daysLeft ?? 0) === 1 ? "" : "s"}.</span> : due.state === "soon" ? <span className="font-medium text-pending">Next upload due {due.daysLeft === 0 ? "today" : due.daysLeft === 1 ? "tomorrow" : `in ${due.daysLeft} days`} ({fmtDate(due.dueOn!)}).</span> : <>Next upload due {fmtDate(due.dueOn!)}.</>}
+          </span>
+        ) : (
+          <span className="font-medium text-rejected">Not uploaded yet. Upload it so only active employees can earn points and get goodies.</span>
+        )}
+      </section>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Segmented
           param="view"
           options={[
             { value: "active", label: "Active", count: c.active },
             { value: "earning", label: "With points", count: c.earning },
-            { value: "due", label: "Reward due", count: c.due },
+            ...(store ? [] : [{ value: "due", label: "Reward due", count: c.due }]),
             { value: "inactive", label: "Inactive", count: c.inactive },
           ]}
         />
@@ -95,11 +116,12 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
               <TableRow className="hover:bg-transparent">
                 {sp.sort !== "name" && <TableHead className="w-12 pl-5 text-right">#</TableHead>}
                 <TableHead className={sp.sort === "name" ? "pl-5" : ""}>Employee</TableHead>
-                <TableHead className="hidden lg:table-cell">Department</TableHead>
+                <TableHead className="hidden lg:table-cell">BU</TableHead>
+                <TableHead className="hidden md:table-cell">Fusion status</TableHead>
                 <TableHead className="text-right">Points</TableHead>
-                <TableHead className="hidden w-48 md:table-cell">Towards {fmtNum(settings.rewards.cap)}</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Events</TableHead>
-                <TableHead className="pr-5 text-right">Due</TableHead>
+                <TableHead className={cn("text-right", store && "pr-5")}>Goodies received</TableHead>
+                {!store && <TableHead className="pr-5 text-right">Due</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -113,12 +135,17 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
                     </Link>
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground lg:table-cell">{e.department ?? "—"}</TableCell>
-                  <TableCell className="num text-right font-semibold">{fmtNum(e.points)}</TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <PointsProgress points={e.points} rules={settings.rewards} size="sm" />
+                    {e.active ? (
+                      <span className="text-xs font-medium text-approved">Active</span>
+                    ) : (
+                      <span className="text-xs font-medium text-rejected">{e.fusionStatus === "RESIGNED" ? "Resigned" : "Inactive"}{e.lastWorkingDate ? `, left ${fmtDate(e.lastWorkingDate)}` : ""}</span>
+                    )}
                   </TableCell>
+                  <TableCell className="num text-right font-semibold">{fmtNum(e.points)}</TableCell>
                   <TableCell className="num hidden text-right sm:table-cell">{e._count.attendance}</TableCell>
-                  <TableCell className="num pr-5 text-right">{e._count.rewards ? <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-reward-soft px-2 text-xs font-semibold text-reward">{e._count.rewards}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className={cn("num text-right", store && "pr-5")} title={received.get(e.id)?.items}>{received.get(e.id)?.units ? fmtNum(received.get(e.id)!.units) : <span className="text-muted-foreground">—</span>}</TableCell>
+                  {!store && <TableCell className="num pr-5 text-right">{e._count.rewards ? <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-reward-soft px-2 text-xs font-semibold text-reward">{e._count.rewards}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
                 </TableRow>
               ))}
             </TableBody>

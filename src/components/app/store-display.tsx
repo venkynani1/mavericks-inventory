@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { CalendarClockIcon, GiftIcon, MapPinIcon } from "lucide-react"
-import { cn, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
+import { addBusinessDays, cn, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
 
 const OS: Record<string, { label: string; employee: string; cls: string }> = {
   PLACED: { label: "Waiting for the team", employee: "Order placed", cls: "bg-pending-soft text-pending" },
@@ -83,6 +83,7 @@ export function OrderCard({ o, actions }: { o: OrderView; actions?: React.ReactN
           <span className="text-muted-foreground">Points spent</span>
           <span className={cn("num font-semibold", (o.status === "REJECTED" || o.status === "CANCELLED") && "line-through text-muted-foreground")}>{fmtNum(o.totalPoints)}</span>
         </div>
+        {(o.status === "PLACED" || o.status === "ACCEPTED") && <p className="text-xs text-muted-foreground">Processing takes up to 20 business days (by {fmtDate(addBusinessDays(o.createdAt, 20))}). If you resign before it&apos;s handed over, it can&apos;t be delivered.</p>}
         {o.status === "PLACED" && <p className="text-muted-foreground">The engagement team will accept your order and tell you where and when to collect it.</p>}
         {o.status === "ACCEPTED" && o.pickupAt && (
           <div className="rounded-lg bg-accent/60 p-3">

@@ -43,3 +43,9 @@ next-env.d.ts
 
 # local tooling
 .agents/
+
+# HR / personal data must never be committed (upload it in the app instead)
+/*.xlsx
+/*.xls
+/*.csv
+*Fusion*Report*

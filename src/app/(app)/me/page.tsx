@@ -13,7 +13,6 @@ import { MavHello } from "@/components/app/mav-hello"
 import { CategoryBadge, Kpi, PointsProgress } from "@/components/app/rewards-display"
 import { AwardsPanel, HistoryPanel, RewardsPanel } from "@/components/app/employee-sections"
 import { PortalUnlinked } from "@/components/app/portal-unlinked"
-import { AskMavButton } from "@/components/app/ask-mav-button"
 import { StoreProgress } from "@/components/app/store-display"
 import { storeCatalogue } from "@/lib/server/store"
 import { Button } from "@/components/ui/button"
@@ -141,8 +140,8 @@ export default async function MyDashboard() {
           )}
           <Panel className="flex flex-col items-start gap-3 p-5">
             <p className="font-medium">Questions about your points?</p>
-            <p className="text-sm text-muted-foreground">Ask Mav. It can see only your own points, goodies and events.</p>
-            <AskMavButton />
+            <p className="text-sm text-muted-foreground">Contact the Mavericks engagement team. Your points history shows every change and why.</p>
+            <Link href="/me/history" className="text-sm text-primary hover:underline">See my points history</Link>
           </Panel>
         </div>
       </div>

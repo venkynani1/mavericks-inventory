@@ -25,15 +25,16 @@ It replaces the Stock count / Recipient / Procurement Excel trackers, and those 
 - **Executives** add stock items, record distributions and stock inward one at a time or by uploading Excel (up to 50,000 rows), and submit them for approval. Valid rows become a draft; problem rows come back in a downloadable error report.
 - **Managers** approve or return requests at level 1. **The Management Authority** approves at level 1 or gives the final level-2 approval when two levels are switched on.
 - **System Administrators** add users and set roles, choose one or two approval levels (optionally only above a unit threshold), and maintain the categories, purposes, locations and units.
-- **Home:** a worklist of what needs you (overdue approvals, returned requests, low stock, store orders to accept, upcoming events without goodies approved), number tiles with trends (on hand, reserved, free to promise, handed out, low or out, event points), engagement snapshot, charts, items to restock and size runs.
+- **Home:** a worklist of what needs you (overdue approvals, returned requests, store orders to accept, the weekly Fusion report, upcoming events without goodies approved), tiles for procured, in stock and distributed, and stock by product with colour variants added together. Low stock (under 50) is on the stock list, not Home, number tiles with trends (on hand, reserved, free to promise, handed out, low or out, event points), engagement snapshot, charts, items to restock and size runs.
 - **Inventory like large stores teams run it:** on hand, reserved and free-to-promise per item, days of cover, a stock movements ledger, and cycle counts whose differences go through approval.
 - **Engagement:** events (tech, non-tech, workshops, hackathons, codeathons…) with points per type set by the administrator; attendance by pasting IDs or uploading a sheet; points credited instantly (up to 20,000); adjust and reset with reasons; a leaderboard.
 - **Event goodies approved before the event:** the executive requests items and quantities for an upcoming event, the manager approves, and stock goes down at approval. Requests after the event date are refused. Goodie prizes for that event come out of the approved goodies with no second approval, and unused goodies are returned to stock.
 - **Points store:** the administrator keeps a catalogue of goodies with points prices. Employees add goodies to a cart and place an order; the points come off at once. The team accepts it with a pickup place, date and time (stock goes down then) or rejects it with a reason (points refunded), then marks it collected. A setting switches back to the older scheme (a goodie at every 2,000 points).
 - **Winners and prizes:** record winners, runners-up and top performers at events with an Amazon voucher, a goodie from stock or another prize, plus bonus points; hand them out from one worklist (straight from the event's approved goodies when there are enough) and export the list for finance. Plan events in bulk by uploading an Excel sheet.
 - **Employee portal:** each employee sees their own points, what their points can get, the points store and cart, their orders with pickup details, goodies received and events.
-- **Ask Mav:** an assistant in the top bar that answers questions from live data, limited to what the person's role may see. Works out of the box; uses an AI model when a key is set: free Gemini (`GEMINI_API_KEY`) or Groq (`GROQ_API_KEY`), or Claude (`ANTHROPIC_API_KEY`).
-- **One-click demo sign-in** and a 3D gift-box mascot that says hello.
+- **QR goodies desk:** at an event, employees scan a QR code and enter their ID and name; the executive hands the goodie over on screen. No Excel sheets for goodies distributed.
+- **Weekly Fusion report:** the executive uploads the HR report once a week (reminded two days before it's due). Only active employees can earn points or get goodies.
+- **One-click demo sign-in.** No chatbot or 3D library, to keep the app light.
 - **Notifications** bell, **system status** page (regions and database latency) and engagement reports.
 - **Reports:** current stock availability, distributed stock, pending approval, approval history and the stock movement ledger, each exportable to Excel and PDF.
 - **Company single sign-on** (Microsoft Entra ID or any OpenID Connect provider), built in and off until configured; roles come from Entra app roles.
@@ -69,9 +70,9 @@ With the demo data loaded (`npm run db:seed`), the sign-in page shows **Explore 
 7. **Reports**: download any report as Excel or PDF.
 8. Sign in as the **Admin**: add a user, sign in as them with the one-time password, and choose a new password. Open **Points and rewards rules** and change the points for workshops or the price of a goodie in the points store.
 9. As the **Executive**, open an upcoming event and select **Request goodies**; the Manager approves before the event and stock goes down. Then **Events → New event** (a workshop) and paste a few employee IDs (for example `2000149999`): points are credited at once.
-10. Sign in as the **Employee** (Priyanka Sharma): open **Points store**, add a goodie to the cart and place the order; her points drop straight away. As the Executive, **Store orders → Accept and set pickup**. Back as Priyanka, **My orders** shows where and when to collect it. Ask Mav "What can I get with my points?".
+10. Sign in as the **Employee** (Priyanka Sharma): open **Points store**, add a goodie to the cart and place the order; her points drop straight away. As the Executive, **Store orders → Accept and set pickup**. Back as Priyanka, **My orders** shows where and when to collect it. 
 
-The same script runs automatically as an end-to-end test (`npm run e2e`, 89 checks in a real browser; `npm test` runs 27 unit tests) on every push.
+The same script runs automatically as an end-to-end test (`npm run e2e`, 95 checks in a real browser; `npm test` runs 30 unit tests) on every push.
 
 ## Run it on your computer
 

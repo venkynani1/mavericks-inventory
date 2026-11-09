@@ -71,7 +71,7 @@ export async function addAward(eventId: string, input: AwardInput, user: Session
   if (event.status === "CANCELLED") throw new AppError("This event is cancelled.", 409)
   const emp = await prisma.employee.findUnique({ where: { empId: v.empId } })
   if (!emp) throw new AppError(`No employee with ID ${v.empId}. Add them under Employees first.`)
-  if (!emp.active) throw new AppError(`${emp.name} is inactive.`)
+  if (!emp.active) throw new AppError(`${emp.name} is not active in the Fusion report, so they can't get prizes.`)
   if (input.kind === "GOODIE") {
     const item = await prisma.stockItem.findUnique({ where: { id: input.stockItemId! } })
     if (!item || item.status !== "ACTIVE") throw new AppError("That goodie isn't an active stock item.")

@@ -129,14 +129,13 @@ export function GoodiesPanel({ data, staff }: { data: EmployeeOverview; staff?: 
             <li key={g.id} className="flex items-center gap-3 px-5 py-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-primary"><GiftIcon className="size-4" /></span>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium">{g.stockItem.name}{g.quantity > 1 ? ` x${g.quantity}` : ""}</span>
+                <span className="truncate font-medium">{g.name}{g.quantity > 1 ? ` x${g.quantity}` : ""}</span>
                 <span className="text-xs text-muted-foreground">
-                  {fmtDate(g.distributedOn)}
-                  {g.purpose ? `, ${g.purpose}` : ""}
-                  {g.remarks ? `, ${g.remarks}` : ""}
+                  {fmtDate(g.date)}
+                  {g.detail ? `, ${g.detail}` : ""}
                 </span>
               </div>
-              {staff && <Link href={`/requests/${g.request.id}`} className="num text-xs text-muted-foreground hover:text-primary">{g.request.number}</Link>}
+              {staff && <Link href={g.href} className="num text-xs text-muted-foreground hover:text-primary">{g.ref}</Link>}
             </li>
           ))}
         </ul>

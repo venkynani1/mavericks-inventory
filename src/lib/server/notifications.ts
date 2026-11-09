@@ -1,3 +1,4 @@
+import { fusionDue } from "./fusion"
 import "server-only"
 import { prisma } from "@/lib/db"
 import { can } from "@/lib/roles"
@@ -41,7 +42,7 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
     can(user.role, "request:approve") ? prisma.request.count({ where: { status: "SUBMITTED", submittedAt: { lt: overdueBefore } } }) : 0,
     prisma.request.count({ where: { createdById: user.id, status: "REJECTED" } }),
     prisma.request.count({ where: { createdById: user.id, status: "DRAFT" } }),
-    can(user.role, "stock:write") || user.role === "ADMIN" ? prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "StockItem" WHERE status = 'ACTIVE' AND "availableQty" > 0 AND "availableQty" <= "reorderLevel"` : [{ n: BigInt(0) }],
+    can(user.role, "stock:write") || user.role === "ADMIN" ? prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM "StockItem" WHERE status = 'ACTIVE' AND "availableQty" > 0 AND "availableQty" < ${settings.lowStockBelow}` : [{ n: BigInt(0) }],
     can(user.role, "stock:write") || user.role === "ADMIN" ? prisma.stockItem.count({ where: { status: "ACTIVE", availableQty: { lte: 0 } } }) : 0,
     can(user.role, "rewards:operate") ? prisma.rewardEarned.count({ where: { status: "DUE" } }) : 0,
     can(user.role, "rewards:operate") ? prisma.eventAward.count({ where: { status: "PENDING" } }) : 0,
@@ -55,6 +56,15 @@ export async function noticesFor(user: SessionUser): Promise<Notice[]> {
   if (out0) out.push({ id: "out", tone: "danger", title: `${out0} item${out0 > 1 ? "s" : ""} out of stock`, detail: "Plan a stock inward.", href: "/stock?state=out" })
   if (lowN) out.push({ id: "low", tone: "warn", title: `${lowN} item${lowN > 1 ? "s" : ""} at or below reorder level`, detail: "Check the reorder suggestions.", href: "/stock?state=low" })
   if (rewardsDue && settings.rewardMode === "milestones") out.push({ id: "rewards", tone: "success", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone. Hand out their goodies.", href: "/rewards" })
+  if (can(user.role, "rewards:operate") || can(user.role, "admin:manage")) {
+    const f = await fusionDue()
+    if (f.state !== "ok")
+      out.push({
+        id: "fusion", tone: f.state === "soon" ? "warn" : "danger", href: "/employees",
+        title: f.state === "never" ? "Upload the Fusion report" : f.state === "overdue" ? "Fusion report overdue" : `Fusion report due ${f.daysLeft === 0 ? "today" : f.daysLeft === 1 ? "tomorrow" : `in ${f.daysLeft} days`}`,
+        detail: "Weekly upload: keeps the list of active employees up to date",
+      })
+  }
   if (ordersDue) out.push({ id: "orders", tone: "warn", title: `${ordersDue} store order${ordersDue > 1 ? "s" : ""} to accept`, detail: "Employees spent points on goodies. Give them a pickup slot.", href: "/redemptions" })
   if (prizesDue) out.push({ id: "prizes", tone: "success", title: `${prizesDue} event prize${prizesDue > 1 ? "s" : ""} to hand out`, detail: "Winners' vouchers and goodies are waiting.", href: "/prizes" })
   return out

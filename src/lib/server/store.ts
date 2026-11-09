@@ -146,6 +146,7 @@ export async function acceptOrder(id: string, pickup: PickupInput, user: Session
       return { number: o.number, rescheduled: true }
     }
     if (o.status !== "PLACED") throw new AppError("This order is no longer waiting for the team.", 409)
+    if (!o.employee.active) throw new AppError(`${o.employee.name} is no longer active in the Fusion report, so the order can't be accepted. Close it with Reject.`, 409)
     const settings = await getSettings()
     for (const l of o.lines) {
       const rows = await tx.$queryRaw<{ availableQty: number }[]>`
@@ -186,6 +187,7 @@ export async function markCollected(id: string, user: SessionUser) {
   return prisma.$transaction(async (tx) => {
     const o = await lockOrder(tx, id)
     if (o.status !== "ACCEPTED") throw new AppError(o.status === "PLACED" ? "Accept the order and give a pickup slot first." : "This order is already closed.", 409)
+    if (!o.employee.active) throw new AppError(`${o.employee.name} is no longer active in the Fusion report. Don't hand it over; close the order with Reject (the goodie goes back to stock).`, 409)
     await tx.redemptionOrder.update({ where: { id }, data: { status: "COLLECTED", collectedAt: new Date(), collectedById: user.id } })
     await audit(tx, { actorId: user.id, action: "STORE_ORDER.COLLECTED", entity: "RedemptionOrder", entityId: id, summary: `${o.number} collected by ${o.employee.name}` })
   })

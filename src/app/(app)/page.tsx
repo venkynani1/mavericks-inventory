@@ -12,7 +12,6 @@ import {
   GiftIcon,
   HourglassIcon,
   PackageOpenIcon,
-  PackageXIcon,
   SettingsIcon,
   TrophyIcon,
 } from "lucide-react"
@@ -27,13 +26,14 @@ import { cn, fmtDate, fmtDateTime, fmtNum } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Panel, PanelHeader } from "@/components/app/page-header"
-import { StockGauge } from "@/components/app/stock-gauge"
 import { SizeRun, type SizeCell } from "@/components/app/size-run"
 import { WeeklyChart } from "@/components/app/charts"
 import { typeLabel } from "@/components/app/status-badge"
 import { Sparkline } from "@/components/app/sparkline"
 import { CategoryBadge } from "@/components/app/rewards-display"
 import { WelcomeBand } from "@/components/app/welcome-band"
+import { fusionDue } from "@/lib/server/fusion"
+import { groupFamilies, productFamily } from "@/lib/stock-family"
 
 type Attention = { key: string; icon: React.ElementType; tone: "warn" | "danger" | "info" | "reward"; title: string; detail: string; href: string; action: string }
 
@@ -48,6 +48,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   const exec = user.role === "EXECUTIVE"
 
   const store = settings.rewardMode === "store"
+  const fusion = await fusionDue()
   const [items, out30, pending, weekly, pointsWeekly, decisions, purposes, mine, flow, rewardsDue, upcoming, toRecord, top, prizesDue, noGoodies] = await Promise.all([
     prisma.stockItem.findMany({ where: { status: "ACTIVE" }, include: { category: true } }),
     prisma.distributionLine.aggregate({ where: { request: { status: "APPROVED" }, distributedOn: { gte: since30 } }, _sum: { quantity: true }, _count: true }),
@@ -85,9 +86,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   ])
 
   const onHand = items.reduce((s, i) => s + i.availableQty, 0)
-  const low = items.filter((i) => i.availableQty > 0 && i.availableQty <= i.reorderLevel)
-  const out = items.filter((i) => i.availableQty <= 0)
-  const restock = [...out, ...low].sort((a, b) => a.availableQty - b.availableQty).slice(0, 6)
+  const procured = items.reduce((s, i) => s + i.openingQty + i.receivedQty, 0)
+  const distributed = items.reduce((s, i) => s + i.distributedQty, 0)
+  const families = groupFamilies(items)
+  const variantsOf = (f: string) => items.filter((i) => productFamily(i.product, i.color) === f).sort((a, b) => a.name.localeCompare(b.name))
   const waitingForMe = approver ? pending.filter((p) => p.createdById !== user.id) : []
   const overdue = waitingForMe.filter((p) => isOverdue(p.submittedAt, settings.escalationHours)).length
   const drafts = mine.find((m) => m.status === "DRAFT")?._count ?? 0
@@ -111,8 +113,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   if (waitingForMe.length) attention.push({ key: "approvals", icon: ClipboardCheckIcon, tone: "warn", title: `${waitingForMe.length} request${waitingForMe.length > 1 ? "s" : ""} to approve`, detail: `${fmtNum(waitingForMe.reduce((s, p) => s + p.totalQty, 0))} units in review`, href: "/approvals", action: "Open queue" })
   if (rejected) attention.push({ key: "rejected", icon: FileClockIcon, tone: "danger", title: `${rejected} request${rejected > 1 ? "s" : ""} sent back to you`, detail: "Read the remarks, fix and resubmit", href: "/requests?status=REJECTED", action: "Fix" })
   if (drafts && can(user.role, "request:create")) attention.push({ key: "drafts", icon: FileClockIcon, tone: "info", title: `${drafts} draft${drafts > 1 ? "s" : ""} not submitted`, detail: "Stock doesn't move until approved", href: "/requests?status=DRAFT", action: "Continue" })
-  if (out.length && (exec || user.role === "ADMIN")) attention.push({ key: "out", icon: PackageXIcon, tone: "danger", title: `${out.length} item${out.length > 1 ? "s" : ""} out of stock`, detail: out.slice(0, 2).map((i) => i.name).join(", "), href: "/stock?state=out", action: "See items" })
-  if (low.length && (exec || user.role === "ADMIN")) attention.push({ key: "low", icon: AlertTriangleIcon, tone: "warn", title: `${low.length} item${low.length > 1 ? "s" : ""} running low`, detail: "At or below reorder level", href: "/stock?state=low", action: "Plan inward" })
   if (prizesDue && can(user.role, "rewards:operate")) attention.push({ key: "prizes", icon: TrophyIcon, tone: "reward", title: `${prizesDue} event prize${prizesDue > 1 ? "s" : ""} to hand out`, detail: "Winners' vouchers and goodies", href: "/prizes", action: "Hand out" })
   if (rewardsDue && can(user.role, "rewards:operate"))
     attention.push(
@@ -120,6 +120,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         ? { key: "orders", icon: GiftIcon, tone: "reward", title: `${rewardsDue} store order${rewardsDue > 1 ? "s" : ""} to accept`, detail: "Employees spent points on goodies", href: "/redemptions", action: "Give pickup slot" }
         : { key: "rewards", icon: GiftIcon, tone: "reward", title: `${rewardsDue} points reward${rewardsDue > 1 ? "s" : ""} due`, detail: "Employees crossed a milestone", href: "/rewards", action: "Hand out" },
     )
+  if (fusion.state !== "ok" && (exec || user.role === "ADMIN"))
+    attention.push({
+      key: "fusion", icon: CalendarClockIcon, tone: fusion.state === "soon" ? "warn" : "danger", href: "/employees", action: "Upload",
+      title: fusion.state === "never" ? "Upload the Fusion report" : fusion.state === "overdue" ? `Fusion report overdue by ${Math.abs(fusion.daysLeft ?? 0)} day${Math.abs(fusion.daysLeft ?? 0) === 1 ? "" : "s"}` : `Fusion report due ${fusion.daysLeft === 0 ? "today" : fusion.daysLeft === 1 ? "tomorrow" : `in ${fusion.daysLeft} days`}`,
+      detail: "Weekly upload, so only active employees get points and goodies",
+    })
   if (noGoodies) attention.push({ key: "goodies", icon: CalendarClockIcon, tone: "info", title: `${noGoodies} upcoming event${noGoodies > 1 ? "s" : ""} without goodies approved`, detail: "Request goodies so the manager approves before the event", href: "/events?view=upcoming", action: "Plan goodies" })
   if (toRecord) attention.push({ key: "record", icon: CalendarClockIcon, tone: "info", title: `${toRecord} past event${toRecord > 1 ? "s" : ""} without attendance`, detail: "Mark attendees so they get their points", href: "/events?view=upcoming", action: "Record" })
 
@@ -181,14 +187,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Tile label="On hand" value={fmtNum(onHand)} hint={`${items.length} active items`} href="/stock" icon={<BoxesIcon />} />
-        <Tile label="Reserved" value={fmtNum(reserved)} hint="In distributions under review" href="/requests?status=SUBMITTED" icon={<HourglassIcon />} />
-        <Tile label="Free to promise" value={fmtNum(Math.max(0, onHand - reserved))} hint={inbound ? `${fmtNum(inbound)} more inbound` : "On hand minus reserved"} icon={<ArrowDownToLineIcon />} />
-        <Tile label="Handed out, 30 days" value={fmtNum(out30._sum.quantity ?? 0)} hint={`${fmtNum(out30._count)} handovers`} spark={chart.map((c) => c.units)} href="/movements" />
-        <Tile label="Low or out" value={fmtNum(low.length + out.length)} hint={`${out.length} out of stock`} tone={out.length ? "danger" : low.length ? "warn" : undefined} href="/stock?state=low" />
-        <Tile label="Event points, 4 weeks" value={fmtNum(pts30)} hint={store ? `${fmtNum(rewardsDue)} store orders waiting` : `${fmtNum(rewardsDue)} rewards due`} spark={ptsSeries} sparkTone="text-reward" href={can(user.role, "rewards:view") ? (store ? "/redemptions" : "/rewards") : undefined} />
+      {/* KPI strip: procured, in stock, distributed */}
+      <div className={cn("mb-5 grid grid-cols-2 gap-3 md:grid-cols-3", exec ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
+        <Tile label="Procured" value={fmtNum(procured)} hint="Opening stock plus every approved inward" icon={<ArrowDownToLineIcon />} href="/movements?type=RECEIPT" />
+        <Tile label="In stock" value={fmtNum(onHand)} hint={`${families.length} products, ${items.length} variants`} href="/stock" icon={<BoxesIcon />} />
+        <Tile label="Distributed" value={fmtNum(distributed)} hint={`${fmtNum(out30._sum.quantity ?? 0)} in the last 30 days`} spark={exec ? chart.map((c) => c.units) : undefined} href="/movements?type=DISTRIBUTION" icon={<PackageOpenIcon />} />
+        <Tile label="In review" value={fmtNum(reserved)} hint={inbound ? `${fmtNum(inbound)} more inbound` : "Units in distributions waiting for approval"} href="/requests?status=SUBMITTED" icon={<HourglassIcon />} />
+        {exec && <Tile label="Event points, 4 weeks" value={fmtNum(pts30)} hint={store ? `${fmtNum(rewardsDue)} store orders waiting` : `${fmtNum(rewardsDue)} rewards due`} spark={ptsSeries} sparkTone="text-reward" href={can(user.role, "rewards:view") ? (store ? "/redemptions" : "/rewards") : undefined} />}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -216,6 +221,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           )}
         </Panel>
 
+        {(exec || user.role === "ADMIN") ? (
         <Panel>
           <PanelHeader title="Engagement" description="Next events and top 5 this quarter" actions={<Button variant="ghost" size="sm" asChild><Link href="/leaderboard">Leaderboard</Link></Button>} />
           <div className="grid gap-0 divide-y">
@@ -249,8 +255,58 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
             </ol>
           </div>
         </Panel>
+        ) : (
+          <RecentDecisions decisions={decisions} audit={can(user.role, "audit:view")} />
+        )}
       </div>
 
+      <Panel className="mt-5 overflow-hidden">
+        <PanelHeader title="Stock by product" description="Colour variants are added together (a black and a blue back bag count as one Back Bag). Open a row to see its variants." actions={<Button variant="ghost" size="sm" asChild><Link href="/stock">All items</Link></Button>} />
+        <div className="grid grid-cols-[minmax(0,1fr)_5rem_5rem_6rem] gap-x-3 border-b bg-muted/40 px-5 py-2 text-xs font-medium text-muted-foreground sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem]">
+          <span>Product</span>
+          <span className="text-right">Procured</span>
+          <span className="text-right">In stock</span>
+          <span className="text-right">Distributed</span>
+        </div>
+        <ul className="divide-y">
+          {families.map((f) => (
+            <li key={f.family}>
+              <details className="group">
+                <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_5rem_5rem_6rem] items-center gap-x-3 px-5 py-2.5 text-sm hover:bg-muted/50 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem] [&::-webkit-details-marker]:hidden">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" />
+                    <span className="truncate font-medium">{f.family}</span>
+                    {f.variants > 1 && <span className="shrink-0 text-xs text-muted-foreground">{f.variants} variants</span>}
+                  </span>
+                  <span className="num text-right">{fmtNum(f.procured)}</span>
+                  <span className={cn("num text-right font-semibold", f.inStock <= 0 && "text-rejected")}>{fmtNum(f.inStock)}</span>
+                  <span className="num text-right">{fmtNum(f.distributed)}</span>
+                </summary>
+                <ul className="bg-muted/30 pb-1">
+                  {variantsOf(f.family).map((v) => (
+                    <li key={v.id}>
+                      <Link href={`/stock/${v.id}`} className="grid grid-cols-[minmax(0,1fr)_5rem_5rem_6rem] gap-x-3 py-1.5 pr-5 pl-11 text-xs hover:text-primary sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem]">
+                        <span className="truncate">{v.name}</span>
+                        <span className="num text-right">{fmtNum(v.openingQty + v.receivedQty)}</span>
+                        <span className="num text-right">{fmtNum(v.availableQty)}</span>
+                        <span className="num text-right">{fmtNum(v.distributedQty)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </li>
+          ))}
+        </ul>
+        <div className="grid grid-cols-[minmax(0,1fr)_5rem_5rem_6rem] gap-x-3 border-t bg-muted/40 px-5 py-2.5 text-sm font-semibold sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem]">
+          <span>Total</span>
+          <span className="num text-right">{fmtNum(procured)}</span>
+          <span className="num text-right">{fmtNum(onHand)}</span>
+          <span className="num text-right">{fmtNum(distributed)}</span>
+        </div>
+      </Panel>
+
+      {exec && (
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Panel>
           <PanelHeader title="Units handed out per week" description="Approved distributions, last 12 weeks" />
@@ -276,52 +332,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </ul>
         </Panel>
       </div>
+      )}
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <Panel>
-          <PanelHeader
-            title="Needs restocking"
-            description="Out of stock or at the reorder level"
-            actions={exec ? <Button variant="outline" size="sm" asChild><Link href="/receipts/new"><ArrowDownToLineIcon data-icon="inline-start" />Record stock inward</Link></Button> : undefined}
-          />
-          <ul className="divide-y">
-            {restock.map((i) => (
-              <li key={i.id}>
-                <Link href={`/stock/${i.id}`} className="flex items-center gap-4 px-5 py-3 outline-none hover:bg-muted/50 focus-visible:bg-muted">
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{i.name}</span>
-                    <span className="text-xs text-muted-foreground">{i.code}, reorder at {i.reorderLevel}</span>
-                  </div>
-                  <StockGauge available={i.availableQty} total={i.openingQty + i.receivedQty} reorder={i.reorderLevel} className="w-40 sm:w-48" />
-                </Link>
-              </li>
-            ))}
-            {!restock.length && <li className="px-5 py-6 text-sm text-muted-foreground">Every item is above its reorder level.</li>}
-          </ul>
-        </Panel>
-        <Panel>
-          <PanelHeader title="Recent decisions" description="Submissions, approvals and rejections" actions={can(user.role, "audit:view") ? <Button variant="ghost" size="sm" asChild><Link href="/admin/audit">Audit log</Link></Button> : undefined} />
-          <ol className="divide-y">
-            {decisions.map((e) => (
-              <li key={e.id}>
-                <Link href={`/requests/${e.requestId}`} className="flex items-start gap-3 px-5 py-3 outline-none hover:bg-muted/50 focus-visible:bg-muted">
-                  <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", e.action === "APPROVED" ? "bg-approved" : e.action === "REJECTED" ? "bg-rejected" : e.action === "CANCELLED" ? "bg-muted-foreground" : "bg-pending")} aria-hidden />
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm">
-                      <span className="font-medium">{e.actor.name}</span> {verb(e.action)} <span className="font-medium">{e.request.number}</span>
-                      {e.level > 0 && <span className="text-muted-foreground"> (level {e.level})</span>}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">{typeLabel(e.request.type)}: {e.request.title}</span>
-                  </div>
-                  <time className="shrink-0 text-xs text-muted-foreground">{fmtDateTime(e.createdAt)}</time>
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </Panel>
-      </div>
+      {(exec || user.role === "ADMIN") && (
+        <div className="mt-5">
+          <RecentDecisions decisions={decisions} audit={can(user.role, "audit:view")} />
+        </div>
+      )}
 
-      {runs.length > 0 && (
+      {exec && runs.length > 0 && (
         <Panel className="mt-5">
           <PanelHeader title="Size runs" description="What's left of each size, so you can plan the next onboarding batch." actions={<Button variant="ghost" size="sm" asChild><Link href="/stock?category=Apparel">All apparel</Link></Button>} />
           <div className="grid gap-x-8 gap-y-6 px-5 py-5 md:grid-cols-2 2xl:grid-cols-3">
@@ -359,5 +378,33 @@ function Tile({ label, value, hint, tone, href, icon, spark, sparkTone }: { labe
     </Link>
   ) : (
     <div className={cls}>{body}</div>
+  )
+}
+
+type Decision = { id: string; requestId: string; action: string; level: number; createdAt: Date; actor: { name: string }; request: { number: string; type: string; title: string | null } }
+
+function RecentDecisions({ decisions, audit }: { decisions: Decision[]; audit: boolean }) {
+  return (
+    <Panel>
+      <PanelHeader title="Recent decisions" description="Submissions, approvals and rejections" actions={audit ? <Button variant="ghost" size="sm" asChild><Link href="/admin/audit">Audit log</Link></Button> : undefined} />
+      <ol className="divide-y">
+        {decisions.map((e) => (
+          <li key={e.id}>
+            <Link href={`/requests/${e.requestId}`} className="flex items-start gap-3 px-5 py-3 outline-none hover:bg-muted/50 focus-visible:bg-muted">
+              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", e.action === "APPROVED" ? "bg-approved" : e.action === "REJECTED" ? "bg-rejected" : e.action === "CANCELLED" ? "bg-muted-foreground" : "bg-pending")} aria-hidden />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm">
+                  <span className="font-medium">{e.actor.name}</span> {verb(e.action)} <span className="font-medium">{e.request.number}</span>
+                  {e.level > 0 && <span className="text-muted-foreground"> (level {e.level})</span>}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">{typeLabel(e.request.type as never)}: {e.request.title}</span>
+              </div>
+              <time className="shrink-0 text-xs text-muted-foreground">{fmtDateTime(e.createdAt)}</time>
+            </Link>
+          </li>
+        ))}
+        {!decisions.length && <li className="px-5 py-6 text-sm text-muted-foreground">No decisions yet.</li>}
+      </ol>
+    </Panel>
   )
 }

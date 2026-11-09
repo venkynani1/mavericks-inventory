@@ -22,7 +22,7 @@ export default async function Approvals() {
   const [pending, mine] = await Promise.all([
     prisma.request.findMany({
       where: { status: "SUBMITTED", createdById: { not: user.id } },
-      include: { createdBy: true, events: { where: { action: "APPROVED" } }, event: { select: { date: true } } },
+      include: { createdBy: true, events: { where: { action: "APPROVED" } }, event: { select: { date: true } }, voucherLines: true },
       orderBy: { submittedAt: "asc" },
     }),
     prisma.approvalEvent.findMany({ where: { actorId: user.id, action: { in: ["APPROVED", "REJECTED"] } }, include: { request: true }, orderBy: { createdAt: "desc" }, take: 15 }),
@@ -37,7 +37,7 @@ export default async function Approvals() {
       ageHours: r.submittedAt ? Math.floor((Date.now() - r.submittedAt.getTime()) / 3600_000) : 0, overdue: isOverdue(r.submittedAt, settings.escalationHours),
       level: r.currentLevel + 1, required: r.requiredLevel, units: r.totalQty, lines: r.lineCount, shortfalls: shortMap.get(r.id) ?? 0,
       approvedEarlierByMe: r.events.some((e) => e.actorId === user.id && r.submittedAt && e.createdAt >= r.submittedAt),
-      event: r.event && r.type === "DISTRIBUTION" ? { date: fmtDate(r.event.date), passed: eventPassed(r.event.date) } : null,
+      event: r.event && r.type === "DISTRIBUTION" ? { date: fmtDate(r.event.date), passed: eventPassed(r.event.date), vouchers: r.voucherLines.length ? `${r.voucherLines.reduce((t, v) => t + v.quantity, 0)} Amazon voucher(s), ₹${r.voucherLines.reduce((t, v) => t + v.quantity * v.denomination, 0).toLocaleString("en-IN")}` : undefined } : null,
     })
   }
   const others = pending.length - actionable.length

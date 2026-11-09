@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/server/settings"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -25,6 +26,7 @@ const MOVE: Record<string, string> = { OPENING: "Opening", RECEIPT: "Stock inwar
 export default async function StockItemPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser()
   const { id } = await params
+  const settings = await getSettings()
   const item = await prisma.stockItem.findUnique({
     where: { id },
     include: { category: true, createdBy: true, request: true, _count: { select: { distributionLines: true, receiptLines: true } } },
@@ -52,7 +54,6 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
     ["Unit", item.unit],
     ["Location", item.location ?? "—"],
     ["Unit cost", item.unitCost ? `₹${Number(item.unitCost).toLocaleString("en-IN")}` : "—"],
-    ["Reorder level", item.reorderLevel],
     ["Added by", `${item.createdBy.name}, ${fmtDate(item.createdAt)}`],
     ["Source request", item.request ? <Link key="r" className="text-primary hover:underline" href={`/requests/${item.request.id}`}>{item.request.number}</Link> : "—"],
   ]
@@ -93,7 +94,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
         }
       >
         <div className="mt-1">
-          <ItemStateBadge available={item.availableQty} reorder={item.reorderLevel} status={item.status} />
+          <ItemStateBadge available={item.availableQty} reorder={settings.lowStockBelow - 1} status={item.status} />
         </div>
       </PageHeader>
 
@@ -115,7 +116,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
               <Figure label="In review" value={fmtNum(inReview)} hint="Not yet deducted" />
               <Figure label="Available" value={fmtNum(item.availableQty)} hint={inReview ? `${fmtNum(Math.max(0, item.availableQty - inReview))} after pending requests` : "Ready to distribute"} strong />
             </div>
-            <StockGauge className="mt-5" available={item.availableQty} total={total} reorder={item.reorderLevel} showLabel={false} />
+            <StockGauge className="mt-5" available={item.availableQty} total={total} reorder={settings.lowStockBelow - 1} showLabel={false} />
             <p className="mt-2 text-xs text-muted-foreground">The bar is everything ever stocked; the solid part is what&apos;s still on the shelf. The tick marks the reorder level.</p>
           </Panel>
 

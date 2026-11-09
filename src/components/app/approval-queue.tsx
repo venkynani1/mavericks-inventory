@@ -28,7 +28,7 @@ export type QueueRow = {
   shortfalls: number
   approvedEarlierByMe: boolean
   /** Set for goodies requested for an event: its date and whether it has already happened. */
-  event?: { date: string; passed: boolean } | null
+  event?: { date: string; passed: boolean; vouchers?: string } | null
 }
 
 export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
@@ -103,6 +103,7 @@ export function ApprovalQueue({ rows }: { rows: QueueRow[] }) {
                         {r.event.passed ? `Event passed on ${r.event.date}` : `For an event on ${r.event.date}: approve before it`}
                       </span>
                     )}
+                    {r.event?.vouchers && <span className="text-xs text-muted-foreground">Plus {r.event.vouchers}</span>}
                   </Link>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">{r.maker}</TableCell>

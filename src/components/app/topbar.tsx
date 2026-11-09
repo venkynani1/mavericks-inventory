@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { useTheme } from "next-themes"
-import { BoxIcon, CalendarDaysIcon, FileTextIcon, KeyRoundIcon, LogOutIcon, MoonIcon, PanelLeftIcon, SearchIcon, SparklesIcon, SunIcon, UserRoundIcon } from "lucide-react"
+import { BoxIcon, CalendarDaysIcon, FileTextIcon, KeyRoundIcon, LogOutIcon, MoonIcon, PanelLeftIcon, SearchIcon, SunIcon, UserRoundIcon } from "lucide-react"
 import { searchEverything } from "@/app/actions/search"
 import { logout } from "@/app/actions/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -30,12 +30,11 @@ import { StatusBadge, type ReqStatus } from "./status-badge"
 type Results = Awaited<ReturnType<typeof searchEverything>>
 const EMPTY: Results = { items: [], requests: [], employees: [], events: [] }
 
-export const openAssistant = () => window.dispatchEvent(new CustomEvent("assistant:open"))
 
 const shellBtn =
   "grid size-9 place-items-center rounded-md text-shell-foreground/85 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/60"
 
-/** The dark masthead across the top of every page: navigation toggle, brand, search, assistant, alerts, account. */
+/** The dark masthead across the top of every page: navigation toggle, brand, search, alerts, account. */
 export function Topbar({ user }: { user: { name: string; email: string; role: Role } }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState("")
@@ -102,13 +101,6 @@ export function Topbar({ user }: { user: { name: string; email: string; role: Ro
       </div>
 
       <div className="ml-1 flex items-center gap-0.5">
-        <button type="button" onClick={openAssistant} className="hidden h-9 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-white outline-none hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/60 sm:flex" aria-label="Open the assistant">
-          <SparklesIcon className="size-4 text-[#9cbcf2]" />
-          <span className="hidden lg:inline">Ask Mav</span>
-        </button>
-        <button type="button" onClick={openAssistant} className={`${shellBtn} sm:hidden`} aria-label="Open the assistant">
-          <SparklesIcon className="size-[18px]" />
-        </button>
         <NotificationsBell />
         <button type="button" className={shellBtn} aria-label="Switch light or dark theme" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
           <SunIcon className="hidden size-[18px] dark:block" />

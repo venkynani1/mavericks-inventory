@@ -1,3 +1,4 @@
+import { goodiesReceived } from "./employee-data"
 import "server-only"
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db"
@@ -38,8 +39,9 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
       const where: Prisma.StockItemWhereInput = { status: "ACTIVE" }
       if (f.category) where.categoryId = f.category
       if (f.q) where.OR = [{ name: { contains: f.q, mode: "insensitive" } }, { code: { contains: f.q, mode: "insensitive" } }]
+      const low = (await getSettings()).lowStockBelow
       let items = await prisma.stockItem.findMany({ where, include: { category: true }, orderBy: [{ product: "asc" }, { name: "asc" }], take: limit })
-      if (f.stock === "low") items = items.filter((i) => i.availableQty > 0 && i.availableQty <= i.reorderLevel)
+      if (f.stock === "low") items = items.filter((i) => i.availableQty > 0 && i.availableQty < low)
       if (f.stock === "out") items = items.filter((i) => i.availableQty <= 0)
       const sum = (k: "openingQty" | "receivedQty" | "distributedQty" | "availableQty") => items.reduce((s, i) => s + i[k], 0)
       return {
@@ -52,12 +54,11 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
           { key: "received", header: "Received", numeric: true, align: "right" },
           { key: "distributed", header: "Distributed", numeric: true, align: "right" },
           { key: "available", header: "Available", numeric: true, align: "right" },
-          { key: "reorder", header: "Reorder at", numeric: true, align: "right" },
           { key: "state", header: "Status", width: 12 },
         ],
         rows: items.map((i) => ({
-          code: i.code, name: i.name, category: i.category.name, opening: i.openingQty, received: i.receivedQty, distributed: i.distributedQty, available: i.availableQty, reorder: i.reorderLevel,
-          state: i.availableQty <= 0 ? "Out of stock" : i.availableQty <= i.reorderLevel ? "Low" : "In stock",
+          code: i.code, name: i.name, category: i.category.name, opening: i.openingQty, received: i.receivedQty, distributed: i.distributedQty, available: i.availableQty,
+          state: i.availableQty <= 0 ? "Out of stock" : i.availableQty < low ? "Low" : "In stock",
         })),
         total: items.length,
         summary: [
@@ -192,6 +193,7 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
         prisma.employee.findMany({ where, orderBy: [{ points: "desc" }, { name: "asc" }], take: limit, include: { _count: { select: { attendance: true } }, rewards: { select: { status: true } } } }),
         prisma.employee.count({ where }),
       ])
+      const got = await goodiesReceived(rows.map((e) => e.id))
       return {
         title: meta.title,
         columns: [
@@ -203,13 +205,14 @@ export async function runReport(key: ReportKey, f: Filters, limit = 100_000): Pr
           { key: "lifetime", header: "Lifetime", numeric: true, align: "right" },
           { key: "cycle", header: "Cycle", numeric: true, align: "right" },
           { key: "events", header: "Events", numeric: true, align: "right" },
-          { key: "issued", header: "Rewards issued", numeric: true, align: "right" },
-          { key: "due", header: "Rewards due", numeric: true, align: "right" },
+          { key: "received", header: "Goodies received", numeric: true, align: "right" },
+          { key: "goodies", header: "Goodies", width: 40 },
           { key: "active", header: "Active", width: 8 },
+          { key: "fusion", header: "Fusion status", width: 12 },
         ],
         rows: rows.map((e) => ({
           empId: e.empId, name: e.name, dept: e.department, location: e.location, points: e.points, lifetime: e.lifetimePoints, cycle: e.cycle, events: e._count.attendance,
-          issued: e.rewards.filter((r) => r.status === "ISSUED").length, due: e.rewards.filter((r) => r.status === "DUE" || r.status === "IN_PROGRESS").length, active: e.active ? "Yes" : "No",
+          received: got.get(e.id)?.units ?? 0, goodies: got.get(e.id)?.items ?? "", active: e.active ? "Yes" : "No", fusion: e.fusionStatus ?? "",
         })),
         total,
         summary: [

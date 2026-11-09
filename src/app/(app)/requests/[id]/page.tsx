@@ -41,7 +41,7 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
   const page = Math.max(1, Number((await searchParams).page) || 1)
   const req = await prisma.request.findUnique({
     where: { id },
-    include: { createdBy: true, events: { include: { actor: true }, orderBy: { createdAt: "asc" } }, event: { select: { id: true, code: true, name: true, date: true } } },
+    include: { createdBy: true, events: { include: { actor: true }, orderBy: { createdAt: "asc" } }, event: { select: { id: true, code: true, name: true, date: true } }, voucherLines: true },
   })
   if (!req) notFound()
   const settings = await getSettings()
@@ -360,6 +360,21 @@ export default async function RequestPage({ params, searchParams }: { params: Pr
                     </li>
                   )
                 })}
+              </ul>
+            </Panel>
+          )}
+
+          {req.voucherLines.length > 0 && (
+            <Panel className="overflow-hidden">
+              <PanelHeader title="Vouchers for the event" description={`Winners' names are added after the event. Total ₹${fmtNum(req.voucherLines.reduce((t, v) => t + v.denomination * v.quantity, 0))}`} />
+              <ul className="divide-y">
+                {req.voucherLines.map((v) => (
+                  <li key={v.id} className="flex items-center gap-4 px-5 py-2.5 text-sm">
+                    <span className="flex-1">{v.provider} voucher, ₹{fmtNum(v.denomination)} each</span>
+                    <span className="num w-16 text-right">x{fmtNum(v.quantity)}</span>
+                    <span className="num w-28 text-right font-medium">₹{fmtNum(v.denomination * v.quantity)}</span>
+                  </li>
+                ))}
               </ul>
             </Panel>
           )}

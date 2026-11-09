@@ -46,3 +46,15 @@ export function normKey(s: string | null | undefined) {
 export function count(n: number, singular: string, plural = `${singular}s`) {
   return `${fmtNum(n)} ${n === 1 ? singular : plural}`
 }
+
+/** Adds working days (Monday to Friday) to a date. Public holidays aren't counted out. */
+export function addBusinessDays(from: Date, days: number) {
+  const d = new Date(from)
+  let left = days
+  while (left > 0) {
+    d.setDate(d.getDate() + 1)
+    const w = d.getDay()
+    if (w !== 0 && w !== 6) left--
+  }
+  return d
+}
